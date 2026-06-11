@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How we run an AI-assisted engineering project</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230a0e14'/%3E%3Ccircle cx='8' cy='8' r='3.4' fill='none' stroke='%2334e0d2' stroke-width='1.6'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#111824; --panel-2:#0e141d; --line:#1f2a38;
+    --ink:#e6edf3; --muted:#8a97a8; --dim:#5c6a7a;
+    --cyan:#34e0d2; --cyan-dim:#176f6a;
+    --amber:#f5b13d; --amber-dim:#6e4f17;
+    --red:#ff6b6b; --red-dim:#5c2b2b; --green:#46d39a; --green-dim:#235a45; --violet:#9d8cff; --violet-dim:#3a3470;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;
+    background-image:linear-gradient(rgba(52,224,210,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(52,224,210,.03) 1px,transparent 1px);
+    background-size:46px 46px;}
+  a{color:var(--cyan);text-decoration:none} a:hover{text-decoration:underline}
+  code,.mono{font-family:var(--mono)}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 22px}
+
+  #bar{position:fixed;top:0;left:0;height:3px;width:0;background:var(--cyan);z-index:60;transition:width .1s linear}
+  nav{position:sticky;top:0;z-index:50;background:rgba(10,14,20,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:14px;min-height:54px;padding:8px 22px;flex-wrap:wrap}
+  nav .brand{font-family:var(--mono);font-size:13px;color:var(--cyan);letter-spacing:.5px;white-space:nowrap}
+  nav .brand b{color:var(--ink)}
+  nav .links{display:flex;gap:3px;flex-wrap:wrap;margin-left:auto}
+  nav .links a{font-size:12.5px;color:var(--muted);padding:5px 9px;border-radius:6px}
+  nav .links a:hover{color:var(--ink);background:var(--panel);text-decoration:none}
+  @media(max-width:820px){nav .links{margin-left:0}}
+
+  section{padding:74px 0;border-bottom:1px solid var(--line)}
+  #steal{border-bottom:none;padding-bottom:104px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan)}
+  h1{font-size:clamp(30px,5vw,52px);line-height:1.07;margin:.35em 0 .25em;letter-spacing:-.5px}
+  h2{font-size:clamp(24px,3.4vw,36px);line-height:1.1;margin:.2em 0 .35em;letter-spacing:-.4px}
+  h3{font-size:18px;margin:0 0 .3em}
+  p.lede{font-size:clamp(16px,2vw,19px);color:#c7d2de;max-width:66ch}
+  .muted{color:var(--muted)} .small{font-size:13px}
+
+  .hero{padding-top:90px}
+  .hero .thesis{max-width:66ch;font-size:clamp(17px,2.1vw,22px);color:#cfd9e4}
+  .hero .thesis b{color:#fff}
+  .steal-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:12px;margin-top:34px}
+  .steal{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+  .steal .n{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+  .steal h4{margin:.35em 0 .2em;font-size:14px}
+  .steal p{margin:0;font-size:12px;color:var(--muted)}
+
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+  .tag.opus{color:var(--violet);border-color:var(--violet-dim);background:rgba(157,140,255,.08)}
+  .tag.sonnet{color:var(--cyan);border-color:var(--cyan-dim);background:rgba(52,224,210,.07)}
+  .tag.block{color:var(--red);border-color:var(--red-dim);background:rgba(255,107,107,.08)}
+  .tag.advise{color:var(--amber);border-color:var(--amber-dim);background:rgba(245,177,61,.08)}
+  .tag.sev{color:var(--red);border-color:var(--red-dim);background:rgba(255,107,107,.07)}
+
+  /* pipeline */
+  .track{position:relative;display:grid;grid-template-columns:repeat(6,1fr);margin:30px 0 6px}
+  .track:before{content:"";position:absolute;top:31px;left:6%;right:6%;height:2px;background:linear-gradient(90deg,var(--cyan-dim),var(--cyan),var(--amber))}
+  .station{position:relative;background:none;border:0;cursor:pointer;padding:0 6px;font-family:inherit;text-align:center}
+  .station .dot{width:22px;height:22px;border-radius:50%;background:var(--bg);border:2px solid var(--cyan-dim);margin:22px auto 10px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .station .dot i{width:8px;height:8px;border-radius:50%;background:var(--cyan-dim);display:block;transition:all .15s}
+  .station .lbl{font-size:12.5px;font-weight:600;color:var(--muted)}
+  .station .cmd{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:2px;display:block}
+  .station:hover .lbl{color:var(--ink)}
+  .station.active .dot{border-color:var(--cyan);box-shadow:0 0 0 5px rgba(52,224,210,.12)}
+  .station.active .dot i{background:var(--cyan);width:11px;height:11px}
+  .station.active .lbl{color:#fff}
+  .detail{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-top:18px}
+  .detail .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+  .detail .top .cmd{font-family:var(--mono);font-size:13px;color:var(--cyan);background:rgba(52,224,210,.07);border:1px solid var(--cyan-dim);padding:3px 9px;border-radius:6px}
+  .detail .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:22px;margin-top:12px}
+  .detail ul{margin:.2em 0;padding-left:18px}
+  .detail li{margin:.28em 0;color:#cdd7e2;font-size:14px}
+  .aside{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 14px}
+  .aside .h{font-family:var(--mono);font-size:11px;color:var(--amber);text-transform:uppercase;letter-spacing:1px}
+
+  /* roles */
+  .principle{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-left:3px solid var(--violet);border-radius:12px;padding:18px 20px;margin:22px 0}
+  .principle b{color:#fff}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+  .fbtn{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 13px;cursor:pointer}
+  .fbtn.on{color:var(--bg);background:var(--cyan);border-color:var(--cyan)}
+  .roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:13px}
+  .role{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .role.hide{display:none}
+  .role .top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .role .rname{font-size:15px;font-weight:700}
+  .role .persona{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+  .role .prod{font-size:12.5px;color:#cdd7e2;margin:9px 0 0;border-top:1px dashed var(--line);padding-top:9px}
+  .role .prod span{color:var(--muted)}
+  .role .esc{font-size:12px;color:var(--amber);margin-top:8px}
+
+  /* quality layers */
+  .qgrid{display:grid;grid-template-columns:1.25fr .75fr;gap:24px;margin-top:24px;align-items:start}
+  @media(max-width:860px){.qgrid{grid-template-columns:1fr}.detail .grid{grid-template-columns:1fr}.track{grid-template-columns:repeat(3,1fr);row-gap:12px}.track:before{display:none}.cycle{grid-template-columns:1fr 1fr !important}.panels{grid-template-columns:1fr !important}}
+  .layers{display:grid;gap:9px;position:relative}
+  .layer{display:grid;grid-template-columns:96px 1fr auto;gap:13px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;transition:all .18s}
+  .layer .stg{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+  .layer .body b{font-size:14px}
+  .layer .body div{font-size:12px;color:var(--muted);margin-top:1px}
+  .layer .vt{font-family:var(--mono);font-size:11px;text-align:right;min-width:64px;opacity:.45}
+  .layer.passed{border-color:var(--green-dim)} .layer.passed .vt{opacity:1;color:var(--green)}
+  .layer.caught{border-color:var(--red);box-shadow:0 0 0 3px rgba(255,107,107,.16);transform:translateX(5px)} .layer.caught .vt{opacity:1;color:var(--red)}
+  .layer.dim{opacity:.4}
+  .controls{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:13px;padding:17px}
+  .controls h3{margin-bottom:4px}
+  .defbtn{display:block;width:100%;text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin:7px 0;color:var(--ink);cursor:pointer;font-family:inherit;font-size:13px;transition:border-color .12s}
+  .defbtn:hover{border-color:var(--cyan)} .defbtn.on{border-color:var(--cyan);background:rgba(52,224,210,.07)}
+  .defbtn .d{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+  .result{margin-top:13px;font-size:13px;color:#cdd7e2;min-height:54px;border-top:1px solid var(--line);padding-top:12px}
+  .result b{color:var(--cyan)}
+
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .panel h3{font-size:17px;display:flex;align-items:center;gap:9px}
+  .panel h3 .pin{font-family:var(--mono);font-size:10px;color:var(--bg);background:var(--cyan);border-radius:5px;padding:2px 6px}
+  .panel h3 .pin.sec{background:var(--amber)}
+  .panel ul{padding-left:0;list-style:none;margin:14px 0 0}
+  .panel li{font-size:13.5px;color:#cdd7e2;margin:11px 0;padding-left:20px;position:relative}
+  .panel li:before{content:"";position:absolute;left:2px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--cyan)}
+  .panel.sec li:before{background:var(--amber)}
+  .panel li b{color:#fff}
+  .panel code{font-size:12px;color:var(--cyan);background:rgba(52,224,210,.06);padding:1px 5px;border-radius:4px}
+  .panel.sec code{color:var(--amber);background:rgba(245,177,61,.06)}
+  .note{font-size:12px;color:var(--dim);margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+
+  /* learning loop cycle */
+  .cyclewrap{margin-top:26px}
+  .cycle{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;position:relative}
+  .cnode{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px;position:relative;z-index:2}
+  .cnode .num{font-family:var(--mono);font-size:10px;color:var(--cyan)}
+  .cnode b{display:block;font-size:13px;margin:.35em 0}
+  .cnode p{font-size:11.5px;color:var(--muted);margin:0}
+  .cnode.feed{border-color:var(--amber-dim);background:rgba(245,177,61,.05)}
+  .cnode.feed .num{color:var(--amber)}
+  .feedlane{margin-top:10px;display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;color:var(--amber);background:rgba(245,177,61,.05);border:1px dashed var(--amber-dim);border-radius:9px;padding:9px 14px}
+  .feedlane .ar{color:var(--amber);font-size:15px}
+
+  /* knowledge system */
+  .tag.team{color:var(--cyan);border-color:var(--cyan-dim);background:rgba(52,224,210,.07)}
+  .tag.personal{color:var(--violet);border-color:var(--violet-dim);background:rgba(157,140,255,.08)}
+  .tag.fire{color:var(--green);border-color:var(--green-dim);background:rgba(70,211,154,.08)}
+  .kphases{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+  @media(max-width:760px){.kphases{grid-template-columns:1fr}}
+  .kphase{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .kphase .ph{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+  .kphase.read .ph{color:var(--cyan)} .kphase.fire .ph{color:var(--green)} .kphase.write .ph{color:var(--amber)}
+  .kphase .items{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+  .kphase .it{font-family:var(--mono);font-size:11px;color:#cdd7e2;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:4px 9px}
+
+  /* lessons */
+  .lfilters{display:flex;gap:7px;flex-wrap:wrap;margin:22px 0 16px}
+  .lessons{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:13px}
+  .lesson{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:12px;padding:15px 16px;cursor:pointer;transition:border-color .12s}
+  .lesson:hover{border-color:var(--cyan-dim)}
+  .lesson.hide{display:none}
+  .lesson .lt{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .lesson .file{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+  .lesson .cat{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+  .lesson .one{font-size:13.5px;color:#dbe4ee;margin:8px 0 0}
+  .lesson .more{display:none;margin-top:11px;border-top:1px dashed var(--line);padding-top:11px}
+  .lesson.open .more{display:block}
+  .lesson .more .k{font-family:var(--mono);font-size:10px;color:var(--amber);text-transform:uppercase;letter-spacing:1px}
+  .lesson .more p{font-size:12.5px;color:#cdd7e2;margin:.2em 0 .8em}
+  .lesson .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+
+  .invariants{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:18px}
+  .inv{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:10px;padding:13px 15px}
+  .inv b{font-size:13.5px} .inv p{font-size:12px;color:var(--muted);margin:.4em 0 0}
+
+  /* takeaways */
+  .take{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:13px;margin-top:22px}
+  .tk{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:12px;padding:15px 17px}
+  .tk .n{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+  .tk b{color:#fff;display:block;margin:.25em 0 .2em}
+  .tk p{font-size:13px;color:var(--muted);margin:0}
+  .meta{margin-top:30px;background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:10px;padding:16px 18px}
+  .meta code{color:var(--cyan);font-size:12.5px}
+
+  /* design section */
+  .swatches{display:flex;gap:11px;flex-wrap:wrap;margin:14px 0 2px}
+  .sw{display:flex;flex-direction:column;align-items:center;gap:5px}
+  .sw i{width:48px;height:30px;border-radius:7px;border:1px solid var(--line);display:block}
+  .sw span{font-family:var(--mono);font-size:9.5px;color:var(--muted)}
+  .dims{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 0}
+  .dim{font-family:var(--mono);font-size:11px;color:#cdd7e2;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:5px 10px}
+  .cmd3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:18px}
+  .c3{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .c3 .cn{font-family:var(--mono);font-size:12px;color:var(--cyan)}
+  .c3 .q{font-size:14px;font-weight:700;margin:.45em 0 .5em;color:#fff}
+  .c3 .m2{font-size:12.5px;color:#cdd7e2;margin:.5em 0 0}
+  .c3 .lab{color:var(--muted);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-top:9px}
+  .c3 .cap2{font-family:var(--mono);font-size:11px;color:var(--amber);border:1px solid var(--amber-dim);border-radius:6px;padding:3px 8px;display:inline-block;margin-top:11px;background:rgba(245,177,61,.06)}
+  .c3 .cap2.none{color:var(--dim);border-color:var(--line);background:none}
+  .lloop{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .lloop .s{flex:1;min-width:158px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 13px}
+  .lloop .s .sn{font-family:var(--mono);font-size:10px;color:var(--cyan)}
+  .lloop .s b{display:block;font-size:13px;margin:.3em 0 .2em}
+  .lloop .s p{font-size:11.5px;color:var(--muted);margin:0}
+  .lloop .ar{display:flex;align-items:center;color:var(--cyan-dim);font-size:17px}
+  .loopcap{margin-top:13px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px;color:#cdd7e2}
+  .loopcap .ret{font-family:var(--mono);font-size:12px;color:var(--amber);border:1px dashed var(--amber-dim);border-radius:8px;padding:7px 12px;background:rgba(245,177,61,.05)}
+  @media(max-width:760px){.cmd3{grid-template-columns:1fr}}
+  footer{padding:38px 0 70px;color:var(--dim);font-size:12.5px}
+  .kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<nav><div class="wrap">
+  <span class="brand"><b>RUNBOOK</b> / how we drive the project</span>
+  <div class="links">
+    <a href="#pipeline">Pipeline</a>
+    <a href="#roles">Roles</a>
+    <a href="#knowledge">Knowledge</a>
+    <a href="#quality">Quality</a>
+    <a href="#coderabbit">Review</a>
+    <a href="#design">Design</a>
+    <a href="#learn">Learning</a>
+    <a href="#lessons">Lessons</a>
+    <a href="#steal">Steal</a>
+  </div>
+</div></nav>
+
+<!-- HERO -->
+<header class="hero"><div class="wrap">
+  <div class="kicker">Applied AI / engineering operations</div>
+  <h1>We don't just use AI to write code.<br>We run an engineering org of AI agents.</h1>
+  <p class="thesis">The model is the easy part. The interesting part is the <b>operating system around it</b>: a fixed path from idea to closeout, roles mapped to model tiers, review that fires before a single byte is pushed, and a closed loop that turns every caught mistake into a written rule the next run reads first.</p>
+
+  <div class="steal-row">
+    <div class="steal"><div class="n">01</div><h4>Route by role, not by vibe</h4><p>Each role has a default model tier and a written rule for when to escalate.</p></div>
+    <div class="steal"><div class="n">02</div><h4>Make the spec adversarial</h4><p>Security attacks the design; findings reconcile back into product and architecture before code exists.</p></div>
+    <div class="steal"><div class="n">03</div><h4>One plan phase, one PR</h4><p>Enforced at planning time by a required Phase field on every board item.</p></div>
+    <div class="steal"><div class="n">04</div><h4>Review before you push</h4><p>An AI reviewer runs locally and findings are resolved before the branch goes up.</p></div>
+    <div class="steal"><div class="n">05</div><h4>Persist every finding</h4><p>Each review posts a greppable PR comment, so findings survive past the merge.</p></div>
+    <div class="steal"><div class="n">06</div><h4>The system learns</h4><p>Closeout mines recurring findings into lessons the next implementation reads first.</p></div>
+  </div>
+</div></header>
+
+<!-- PIPELINE -->
+<section id="pipeline"><div class="wrap">
+  <div class="kicker">The pipeline</div>
+  <h2>Idea to shipped, as a fixed path</h2>
+  <p class="lede">Work moves left to right. Each station is a slash command with a defined input, a defined output artifact, and a defined hand-off. Click a station.</p>
+  <div class="track" id="track"></div>
+  <div class="detail" id="stationDetail"></div>
+  <p class="small muted" style="margin-top:14px">Step through with <span class="kbd">&larr;</span> <span class="kbd">&rarr;</span> while this section is in view.</p>
+</div></section>
+
+<!-- ROLES -->
+<section id="roles"><div class="wrap">
+  <div class="kicker">Roles and model tiers</div>
+  <h2>Two model tiers, ten roles, one escalation rule</h2>
+  <p class="lede">The transferable idea is not the cast. It is the operating model: every role has a default tier and the decision to spend a stronger model is a written rule, not a judgment call made fresh each time.</p>
+
+  <div class="principle">
+    <b>The rule.</b> Judgment work (product, architecture, security, testing, planning, model-optimization) defaults to the strong tier. Execution work (implementation, bug investigation, infrastructure, docs) defaults to the cheap tier and escalates to the strong tier when the task involves architectural decisions, cross-cutting refactors, high ambiguity, concurrency or data migrations, performance- or security-critical paths, or synthesis of conflicting sources. Routing to the right role matters more than the tier: the wrong role burns context on any model.
+  </div>
+
+  <div class="filters" id="rfilters">
+    <button class="fbtn on" data-f="all">All ten</button>
+    <button class="fbtn" data-f="judgment">Judgment / strong tier</button>
+    <button class="fbtn" data-f="execution">Execution / cheap tier</button>
+  </div>
+  <div class="roles" id="roleGrid"></div>
+</div></section>
+
+<!-- KNOWLEDGE -->
+<section id="knowledge"><div class="wrap">
+  <div class="kicker">Knowledge system</div>
+  <h2>The shared brain: how the context layers work together</h2>
+  <p class="lede">The agents do not start from zero each time. They share a layered store of knowledge: some of it is always on, some loads on demand, some fires on its own, and the loops both read it at the start of work and grow it at the end. Click a layer.</p>
+
+  <div class="lfilters" id="kfilters">
+    <button class="fbtn on" data-f="all">All layers</button>
+    <button class="fbtn" data-f="read">Read at start</button>
+    <button class="fbtn" data-f="fires">Fires during</button>
+    <button class="fbtn" data-f="write">Written at end</button>
+  </div>
+  <div class="lessons" id="klayers"></div>
+
+  <h3 style="margin:34px 0 0;font-size:16px;color:var(--muted)">How the layers move through one loop</h3>
+  <div class="kphases">
+    <div class="kphase read">
+      <div class="ph">loaded at the start</div>
+      <div class="items"><span class="it">CLAUDE.md</span><span class="it">nested CLAUDE.md</span><span class="it">lessons library</span><span class="it">recurring-patterns</span><span class="it">personal memory</span><span class="it">the right skill</span></div>
+    </div>
+    <div class="kphase fire">
+      <div class="ph">fires during the work</div>
+      <div class="items"><span class="it">hooks on edit</span><span class="it">skills on demand</span><span class="it">slash commands</span></div>
+    </div>
+    <div class="kphase write">
+      <div class="ph">written at the end</div>
+      <div class="items"><span class="it">new or strengthened lessons</span><span class="it">recurring-patterns</span><span class="it">personal memory</span><span class="it">CLAUDE.md, roles, commands when reusable</span></div>
+    </div>
+  </div>
+  <div class="feedlane"><span class="ar">&#8617;</span> what gets written at the end becomes what the next session loads at the start</div>
+</div></section>
+
+<!-- QUALITY LAYERS -->
+<section id="quality"><div class="wrap">
+  <div class="kicker">Defense in depth</div>
+  <h2>The quality layers in the implementation loop</h2>
+  <p class="lede">A change passes through layers ordered from cheapest to most expensive. The goal is to catch each class of defect at the earliest layer that can see it, long before CI minutes are spent. Pick a defect and see where it stops.</p>
+
+  <div class="qgrid">
+    <div class="layers" id="layers"></div>
+    <div class="controls">
+      <h3>Inject a defect</h3>
+      <p class="small muted" style="margin:2px 0 6px">Each one is a real bug class we have shipped and caught.</p>
+      <div id="defectBtns"></div>
+      <div class="result" id="result">A clean change clears every layer and opens as a draft PR, already reviewed.</div>
+    </div>
+  </div>
+  <p class="small muted" style="margin-top:14px">Blocking layers stop the change. The draft-first convention defers the expensive browser and accessibility matrix until a PR is marked Ready for review, so draft pushes stay fast.</p>
+</div></section>
+
+<!-- CODERABBIT + SCANNING -->
+<section id="coderabbit"><div class="wrap">
+  <div class="kicker">Review and scanning</div>
+  <h2>How we actually use CodeRabbit and the security scanners</h2>
+  <p class="lede">Two distinct jobs. CodeRabbit reads the diff for the bugs that compile, lint clean, and pass shallow tests. The scanners watch for secrets, vulnerable dependencies, and container CVEs. Both feed the same downstream record.</p>
+
+  <div class="panels">
+    <div class="panel">
+      <h3><span class="pin">CodeRabbit</span> the semantic reviewer</h3>
+      <ul>
+        <li><b>Cloud auto-review is off, on purpose.</b> <code>.coderabbit.yaml</code> sets <code>auto_review.enabled: false</code> so we do not burn CI on a post-push review loop. The review happens before the push, so the PR opens already clean.</li>
+        <li><b>Local CLI against origin.</b> <code>cr review --agent --base origin/main</code> produces findings the agent acts on. We use <code>origin/main</code> because local main is often stale in a worktree.</li>
+        <li><b>Triage and cap.</b> Fix Critical and Warning, leave Info to discretion, re-run once to confirm clean, then stop. The loop is capped at about two passes so an agent never grinds.</li>
+        <li><b>Findings are persisted.</b> After the PR opens, the findings go into one comment marked <code>&lt;!-- cr-cli-findings --&gt;</code>: each finding and how it was resolved. With no cloud threads, this comment is the durable record.</li>
+        <li><b>Deeper pass on demand.</b> <code>/code-review ultra</code> runs a multi-agent cloud review of the branch or a PR when a change warrants more than the local pass.</li>
+      </ul>
+      <div class="note">That findings comment is not paperwork. It is the sensor for the learning loop below: closeout greps the marker across every PR in the project.</div>
+    </div>
+
+    <div class="panel sec">
+      <h3><span class="pin sec">Scanners</span> secrets, supply chain, CVEs</h3>
+      <ul>
+        <li><b>Secret scanning, two stages.</b> A pre-commit <code>gitleaks</code> hook scans staged changes for fast local feedback; a non-bypassable CI job (<code>secret-scan.yml</code>) rescans the event's commit range as the backstop. A narrow allowlist lives in <code>.gitleaks.toml</code>; a real secret is rotated, never allowlisted.</li>
+        <li><b>Container CVE gate.</b> On main builds, <code>Trivy</code> scans each image for Critical and High vulnerabilities with <code>--ignore-unfixed</code> and fails the build on a hit.</li>
+        <li><b>Results land in GitHub Advanced Security.</b> Scanner output is uploaded as SARIF through <code>github/codeql-action/upload-sarif</code>, so findings surface in the GitHub code-scanning dashboard.</li>
+        <li><b>Dependency updates.</b> Dependabot runs weekly for npm, Actions, and Docker. Minor and patch bumps are grouped; majors get individual PRs; its own PRs get a cheap quick-check instead of the full matrix.</li>
+      </ul>
+      <div class="note">Honest scope note: there is no standalone CodeQL analysis job today. The semantic-bug coverage CodeQL would give is provided by the CodeRabbit pass plus the integration and concurrency test suites; the scanning layer above is gitleaks, Trivy, and Dependabot feeding the same code-scanning surface.</div>
+    </div>
+  </div>
+</div></section>
+
+<!-- DESIGN -->
+<section id="design"><div class="wrap">
+  <div class="kicker">Design</div>
+  <h2>The design system is a skill, and fidelity is a loop</h2>
+  <p class="lede">Two ideas worth copying. First, the brand is not tribal knowledge re-explained each session; it is a loadable capability. Second, the gap between a design proposal and the running app is closed by an agent working in a real browser, not by reading screenshots.</p>
+
+  <div class="panels">
+    <div class="panel">
+      <h3><span class="pin">Skill</span> design knowledge agents load on demand</h3>
+      <div class="swatches">
+        <div class="sw"><i style="background:#2a9d83"></i><span>teal #2a9d83</span></div>
+        <div class="sw"><i style="background:#0c8ee7"></i><span>blue #0c8ee7</span></div>
+        <div class="sw"><i style="background:var(--green)"></i><span>sentiment +</span></div>
+        <div class="sw"><i style="background:var(--amber)"></i><span>sentiment 0</span></div>
+        <div class="sw"><i style="background:var(--red)"></i><span>sentiment -</span></div>
+      </div>
+      <ul>
+        <li><b>Built in Claude, embedded as a skill.</b> We designed the system in Claude, then captured it in the repo at <code>.claude/skills/</code>. Any agent building UI, production or throwaway prototype, loads it and inherits the brand instead of re-deriving it.</li>
+        <li><b>Tokens as the source of truth.</b> One file, <code>colors_and_type.css</code>: a teal primary, slate neutrals, paired semantic and sentiment palettes, a seven-stop chart palette, a 12-to-48px type scale on Inter and JetBrains Mono, a 4px spacing base, plus radii, shadows, motion, and layout tokens. Dark mode is canonical.</li>
+        <li><b>The system is shown, not just named.</b> 29 reference cards, one concept each, a clickable UI kit, and 26 proposal mockups the audits compare against.</li>
+        <li><b>Brand rules are encoded as instructions.</b> No emoji in product UI, Lucide stroke icons only, no gradients in chrome, sentence case for chrome and title case for product nouns, and a fixed decision-state vocabulary (none, pending, accepted, declined).</li>
+      </ul>
+      <div class="note">Same shape as the lessons library: institutional knowledge captured once as a versioned artifact the agent reads, rather than context re-supplied by hand every time.</div>
+    </div>
+
+    <div class="panel">
+      <h3><span class="pin">Loop</span> proposal versus the running app</h3>
+      <p class="small muted" style="margin-top:2px">Three commands answer three different questions. They escalate into each other: a critique can demand a redesign, an audit produces a spec, and the local loop fixes what it can on the spot.</p>
+      <div class="dims">
+        <span class="dim">Layout and IA</span><span class="dim">Components</span><span class="dim">Copy</span><span class="dim">Design tokens</span><span class="dim">States</span><span class="dim">Interactions</span><span class="dim">Responsive</span><span class="dim">Accessibility</span>
+      </div>
+      <p class="note" style="border-top:none;margin-top:10px;padding-top:0">The eight fidelity dimensions an audit walks. None of them get skipped.</p>
+    </div>
+  </div>
+
+  <div class="cmd3">
+    <div class="c3">
+      <div class="cn">/design-critique</div>
+      <div class="q">Is the design any good?</div>
+      <div class="m2">Looks at a proposal, route, or mockup with no implementation in scope. Ten questions across product strategy, hierarchy, cognitive load, realistic states, brand, and privacy.</div>
+      <span class="lab">verdict</span><div class="m2" style="margin-top:2px">sound, rework, or broken</div>
+      <span class="lab">output</span><div class="m2" style="margin-top:2px">inline, or docs/critiques/&lt;slug&gt;</div>
+      <span class="cap2 none">no cap</span>
+    </div>
+    <div class="c3">
+      <div class="cn">/design-audit</div>
+      <div class="q">Does the build match the proposal?</div>
+      <div class="m2">Sanity-checks the proposal first; an S0 finding stops the audit, since polishing a flawed design is wasted effort. Then audits fidelity across the eight dimensions.</div>
+      <span class="lab">output</span><div class="m2" style="margin-top:2px">docs/specs/fidelity-&lt;screen&gt;-&lt;date&gt;.md, with a phased remediation plan</div>
+      <span class="cap2 none">no cap, thorough by design</span>
+    </div>
+    <div class="c3">
+      <div class="cn">/design-audit-local</div>
+      <div class="q">What is wrong live, and can I fix it now?</div>
+      <div class="m2">Opens the proposal and the running local app side by side in Chrome through the chrome-devtools MCP, fixes drift in source, hot-reloads, and re-verifies.</div>
+      <span class="lab">output</span><div class="m2" style="margin-top:2px">uncommitted fixes on the branch, plus a scratchpad in tmp</div>
+      <span class="cap2">cap: 3 attempts per gap</span>
+    </div>
+  </div>
+
+  <h3 style="margin:34px 0 0;font-size:16px;color:var(--muted)">Inside the live loop: /design-audit-local</h3>
+  <div class="lloop">
+    <div class="s"><span class="sn">step 1</span><b>Capture</b><p>Proposal and the live route side by side in Chrome at 1440x900, through the chrome-devtools MCP.</p></div>
+    <div class="ar">&rarr;</div>
+    <div class="s"><span class="sn">step 2</span><b>Walk</b><p>The eight dimensions, plus live-only checks: console errors, failed requests, layout shift on load.</p></div>
+    <div class="ar">&rarr;</div>
+    <div class="s"><span class="sn">step 3</span><b>Triage</b><p>Fix-live for drift, tokens, copy, and hover. Escalate structural gaps or a flawed-proposal concern.</p></div>
+    <div class="ar">&rarr;</div>
+    <div class="s"><span class="sn">step 4</span><b>Fix and reload</b><p>Smallest edit, tokens only and no magic hex, HMR reload, watch the console for new errors.</p></div>
+    <div class="ar">&rarr;</div>
+    <div class="s"><span class="sn">step 5</span><b>Re-verify</b><p>Re-screenshot the same viewport against the proposal. Closed, or iterate on step 4.</p></div>
+  </div>
+  <div class="loopcap">
+    <span class="ret">&#8617; iterate step 4, capped at 3 attempts per gap</span>
+    <span class="muted">then escalate the gap to <code style="color:var(--cyan)">/design-audit</code> for a spec, or file an issue. Fixes land uncommitted on the branch and go through the same pre-push gate as any change.</span>
+  </div>
+</div></section>
+
+<!-- LEARNING LOOP -->
+<section id="learn"><div class="wrap">
+  <div class="kicker">The learning loop</div>
+  <h2>Caught mistakes become rules the next run reads first</h2>
+  <p class="lede">This is the part that makes it a system rather than a tool. When a project's last PR merges, the closeout ceremony mines every review finding for recurring families and writes them where the next agent looks before it codes. A mistake that recurs across two or more PRs becomes a rule.</p>
+
+  <div class="cyclewrap">
+    <div class="cycle" id="cycle"></div>
+    <div class="feedlane"><span class="ar">&#8617;</span> feedback: the next implementation starts by reading the lessons and the recurring-patterns checklist, so the same family does not return</div>
+  </div>
+
+  <div class="meta">
+    <b>Why a family, not a fix.</b>
+    <p class="small muted" style="margin:.5em 0 0">Fixing one bug helps one PR. Naming the family (its trigger, failure mode, and the check that prevents it) and putting it where the next agent reads first is what stops the class from coming back. The repo has 64 lesson files today. The single most-repeated finding, tenant-isolation tests that pass even when the tenant filter is dropped, still recurred four times across three PRs after it was documented. The response was to strengthen the trigger, not re-file the lesson.</p>
+  </div>
+</div></section>
+
+<!-- REAL LESSONS -->
+<section id="lessons"><div class="wrap">
+  <div class="kicker">Real lessons</div>
+  <h2>Eight lessons, straight from the library</h2>
+  <p class="lede">These are verbatim entries from <code>docs/agent-lessons/</code>, each sourced from a real PR finding. Click a card for the trigger, the failure mode, and the fix. The point is not the individual bug; it is that each one is now a check the next run runs.</p>
+
+  <div class="lfilters" id="lfilters">
+    <button class="fbtn on" data-f="all">All</button>
+    <button class="fbtn" data-f="security">Security</button>
+    <button class="fbtn" data-f="testing">Testing</button>
+    <button class="fbtn" data-f="concurrency">Concurrency</button>
+    <button class="fbtn" data-f="data">Data</button>
+    <button class="fbtn" data-f="ai">AI</button>
+    <button class="fbtn" data-f="frontend">Frontend</button>
+    <button class="fbtn" data-f="infra">Infra</button>
+  </div>
+  <div class="lessons" id="lessonGrid"></div>
+
+  <h3 style="margin:34px 0 0;font-size:16px;color:var(--muted)">Three invariants that recur despite being known</h3>
+  <div class="invariants" id="invariants"></div>
+</div></section>
+
+<!-- STEAL -->
+<section id="steal"><div class="wrap">
+  <div class="kicker">Steal this</div>
+  <h2>Practices that transfer to any project</h2>
+  <div class="take" id="take"></div>
+</div></section>
+
+<script>
+/* progress bar */
+const bar=document.getElementById('bar');
+addEventListener('scroll',()=>{const h=document.documentElement;bar.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';},{passive:true});
+
+/* ---------- pipeline ---------- */
+const STAGES=[
+  {lbl:'Idea',cmd:'/generate-project',title:'Intake and clarifying questions',
+   bullets:['Operator gives a goal plus attachments: screenshots, docs, links, customer notes.','One batched set of clarifying questions, five to eight max.','Each question explains the decision it unlocks; nothing answerable from the repo gets asked.'],
+   aside:'The agent reads the agent-lessons library first, so recent mistakes are fresh before anything new is designed.'},
+  {lbl:'Spec',cmd:'/generate-project',title:'Adversarial design loop',
+   bullets:['Product and architecture are drafted in parallel, then security reviews the merge.','Security returns required changes, not opinions, and they are reconciled back into product and architecture.','Testing strategy and an input-validation matrix are added on top of a reconciled spec.'],
+   aside:'Work does not proceed to testing while a security-required product or architecture change is unresolved. This reconcile step is the part worth copying.'},
+  {lbl:'Plan',cmd:'/generate-project',title:'Phased project and labeled issues',
+   bullets:['The spec becomes ordered, labeled GitHub issues with dependencies and acceptance criteria.','A project is created with three required fields: Phase, Priority, Owner.','One plan phase maps to exactly one future implementation PR.','A fresh agent runs a sanity check with no design-loop context.'],
+   aside:'Every board item must have a non-null Phase. Two past projects skipped this and cost weeks of retrofit.'},
+  {lbl:'Code',cmd:'/implement-project',title:'Walk the board, one phase per PR',
+   bullets:['Each phase gets its own git worktree and branch.','One implementation commit per issue, referencing the issue number.','Prisma, Bicep, and Dockerfile changes each trigger their own follow-on checks.','The slash command itself is the authorization; routine commits do not pause.'],
+   aside:'After three autonomous phases the agent pauses for an operator check-in, even when nothing is wrong.'},
+  {lbl:'Gates',cmd:'pnpm precheck',title:'Layered review before the push',
+   bullets:['Pre-commit scans staged changes for secrets and fixes markdown.','The local AI reviewer runs against origin/main and findings are resolved before push.','Pre-push runs a diff-driven gate: build, lint, tests, and path-specific checks.','The PR opens as a draft; the expensive matrix fires only on Ready for review.'],
+   aside:'Findings are posted as a marked PR comment so the closeout ceremony can mine them later.'},
+  {lbl:'Closeout',cmd:'/project-closeout',title:'Clean up, then mine the lessons',
+   bullets:['Confirm every PR merged and clean up worktrees and branches.','Pull every review-findings comment across all PRs in the project.','Classify findings by mistake family; two or more PRs makes it a pattern.','Write new lessons or strengthen existing ones, then update the working notes.'],
+   aside:'Repo-facing lessons go in the repo for everyone; personal operating habits go in private memory.'}
+];
+const track=document.getElementById('track'),sd=document.getElementById('stationDetail');
+let curStation=0;
+STAGES.forEach((s,i)=>{const b=document.createElement('button');b.className='station';
+  b.innerHTML=`<span class="dot"><i></i></span><span class="lbl">${s.lbl}</span><span class="cmd">${s.cmd}</span>`;
+  b.onclick=()=>selectStation(i);track.appendChild(b);});
+function selectStation(i){curStation=i;[...track.children].forEach((c,j)=>c.classList.toggle('active',j===i));
+  const s=STAGES[i];
+  sd.innerHTML=`<div class="top"><span class="cmd">${s.cmd}</span><h3 style="margin:0">${s.title}</h3></div>
+    <div class="grid"><div><ul>${s.bullets.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    <div class="aside"><div class="h">Hard-won specific</div><div class="small" style="margin-top:5px;color:#cdd7e2">${s.aside}</div></div></div>`;}
+selectStation(0);
+let pipeInView=false;
+new IntersectionObserver(es=>es.forEach(e=>pipeInView=e.isIntersecting),{threshold:.3}).observe(document.getElementById('pipeline'));
+addEventListener('keydown',e=>{if(!pipeInView)return;
+  if(e.key==='ArrowRight')selectStation(Math.min(STAGES.length-1,curStation+1));
+  if(e.key==='ArrowLeft')selectStation(Math.max(0,curStation-1));});
+
+/* ---------- roles ---------- */
+const ROLES=[
+  {r:'Product and UX',p:'Leith',t:'opus',g:'judgment',prod:'User stories, empty and error states, copy intent, acceptance criteria.',esc:''},
+  {r:'Architecture and performance',p:'Melvin',t:'opus',g:'judgment',prod:'Service impact, data ownership, latency and cost, failure modes, migration plan.',esc:''},
+  {r:'Security and threat modeling',p:'Nyx',t:'opus',g:'judgment',prod:'Threat model and required mitigations that reconcile back into the spec.',esc:''},
+  {r:'Testing strategy',p:'Marcelo',t:'opus',g:'judgment',prod:'Test plan and an input-validation matrix for every accepted input.',esc:''},
+  {r:'Planning',p:'Jody',t:'opus',g:'judgment',prod:'Phased project, labeled issues, dependencies, one phase per PR.',esc:''},
+  {r:'LLM optimization',p:'Otto',t:'opus',g:'judgment',prod:'Model choice per task, prompt and token-cost tuning, pipeline latency.',esc:''},
+  {r:'Implementation',p:'Isabelle',t:'sonnet',g:'execution',prod:'The code: matches patterns, tests its work, ships clean PRs.',esc:'Escalate for architecture, cross-cutting refactors, or security-sensitive paths.'},
+  {r:'Bug investigation',p:'Bert',t:'sonnet',g:'execution',prod:'Root-cause analysis and well-documented issues; does not implement unless asked.',esc:'Escalate when the cause spans services or the fix needs a design call.'},
+  {r:'IaC and deployment',p:'Aaron',t:'sonnet',g:'execution',prod:'Bicep, GitHub Actions, deploy fixes, infrastructure state.',esc:'Escalate for infra design or anything touching production state.'},
+  {r:'Docs and ADRs',p:'Patricia',t:'sonnet',g:'execution',prod:'Current docs, architectural decision records, preserved knowledge.',esc:'Escalate when a decision record requires judgment on conflicting sources.'}
+];
+const rolesEl=document.getElementById('roleGrid');
+function renderRoles(f){rolesEl.innerHTML='';ROLES.forEach(a=>{
+  const show=f==='all'||f===a.g;
+  const el=document.createElement('div');el.className='role'+(show?'':' hide');
+  el.innerHTML=`<div class="top"><div><div class="rname">${a.r}</div><div class="persona">${a.p}</div></div><span class="tag ${a.t}">${a.t==='opus'?'Strong':'Cheap'}</span></div>
+    <div class="prod"><span>produces:</span> ${a.prod}</div>${a.esc?`<div class="esc">&#8593; ${a.esc}</div>`:''}`;
+  rolesEl.appendChild(el);});}
+renderRoles('all');
+document.getElementById('rfilters').addEventListener('click',e=>{const b=e.target.closest('.fbtn');if(!b)return;
+  [...document.querySelectorAll('#rfilters .fbtn')].forEach(x=>x.classList.toggle('on',x===b));renderRoles(b.dataset.f);});
+
+/* ---------- knowledge system ---------- */
+const KNOW=[
+  {n:'CLAUDE.md',scope:'team',load:'always-on',phase:['read'],
+   one:'The operating contract, loaded into every session.',
+   what:'Repo-wide conventions, invariants, the command list, logging rules, and git and PR discipline. The rules every agent follows by default.',
+   ex:'Never push to main. One Closes per line. No console logging in production code. Verify Azure context before any az command.'},
+  {n:'Nested CLAUDE.md',scope:'team',load:'in-area',phase:['read'],
+   one:'Scope-specific discipline under services and infrastructure.',
+   what:'Smaller contracts that apply only while you work in a given area, layered on top of the root file.',
+   ex:'services/database: add a Dockerfile COPY for every new exported file. dashboard and admin-ui: use proxy.ts, never middleware.ts.'},
+  {n:'Agent roles',scope:'team',load:'on routing',phase:['read'],
+   one:'The roster of roles and their default model tiers.',
+   what:'Who does what, which tier each role runs on, and the escalation rule. Routing is a lookup, not a fresh guess.',
+   ex:'Implementation defaults to the cheap tier and escalates to the strong tier for architecture, concurrency, or security work.'},
+  {n:'Skills',scope:'team',load:'on demand',phase:['fires'],
+   one:'Loadable capabilities and procedures.',
+   what:'Packaged know-how the agent pulls in when needed: code review, the pre-push gate, the design audits, the design system, and test and doc helpers. Some are slash commands.',
+   ex:'The design system skill injects the brand tokens and components so generated UI is on-brand without re-deriving the brand.'},
+  {n:'Slash commands',scope:'team',load:'on invocation',phase:['fires'],
+   one:'The orchestration entry points that drive the loops.',
+   what:'Each command runs a defined workflow end to end and is its own authorization for routine steps.',
+   ex:'generate-project, implement-project, project-closeout, design-audit. One command per stage of the pipeline.'},
+  {n:'Lessons library',scope:'team',load:'at start of work',phase:['read','write'],
+   one:'Experiential memory: what went wrong before, and the check that prevents it.',
+   what:'64 entries, each a trigger, failure mode, correct behavior, and check, drawn from real review findings. Read before implementing.',
+   ex:'A tenant-isolation test must go red if the tenant filter is dropped, not merely assert that a missing row throws.'},
+  {n:'Recurring-patterns checklist',scope:'team',load:'before push',phase:['read','write'],
+   one:'The consolidated start-of-PR checklist of mistake families.',
+   what:'The lessons that recurred most, distilled into one list to run before pushing, so known traps get checked at authoring time.',
+   ex:'Non-atomic read-then-write, stale React state, dropped tenant predicates, tests that pass for the wrong reason.'},
+  {n:'Hooks',scope:'team',load:'on matching edit',phase:['fires'],
+   one:'Reflexes that fire automatically on certain edits.',
+   what:'Edit-time reminders and gates wired into the harness, so a class of mistake is caught the moment it is typed.',
+   ex:'Edit schema.prisma and get a reminder to regenerate Prisma and rebuild dependents. Touch middleware.ts and get told to use proxy.ts.'},
+  {n:'Personal memory',scope:'personal',load:'recalled by relevance',phase:['read','write'],
+   one:'How this operator works, kept out of the repo.',
+   what:'Cross-session notes on orchestration cadence, verification habits, and tooling gotchas. The index loads each session; entries are recalled when relevant. Distinct from the team lessons in the repo.',
+   ex:'Validate inside the worktree, spawn short single-issue agents, and query live PR and CI state before reporting status.'}
+];
+const klayersEl=document.getElementById('klayers');
+function roleTag(p){return p==='read'?'<span class="tag sonnet">read at start</span>':p==='write'?'<span class="tag advise">written at end</span>':'<span class="tag fire">fires during</span>';}
+function renderKnow(f){klayersEl.innerHTML='';KNOW.forEach(k=>{
+  const show=f==='all'||k.phase.includes(f);
+  const el=document.createElement('div');el.className='lesson'+(show?'':' hide');
+  el.innerHTML=`<div class="lt"><span class="file">${k.n}</span><span class="tag ${k.scope==='personal'?'personal':'team'}">${k.scope}</span></div>
+    <div class="cat" style="margin-top:6px">${k.load}</div>
+    <div class="one">${k.one}</div>
+    <div class="more"><div class="k">what it carries</div><p>${k.what}</p><div class="k">in practice</div><p>${k.ex}</p></div>
+    <div class="badges">${k.phase.map(roleTag).join('')}</div>`;
+  el.onclick=()=>el.classList.toggle('open');
+  klayersEl.appendChild(el);});}
+renderKnow('all');
+document.getElementById('kfilters').addEventListener('click',e=>{const b=e.target.closest('.fbtn');if(!b)return;
+  [...document.querySelectorAll('#kfilters .fbtn')].forEach(x=>x.classList.toggle('on',x===b));renderKnow(b.dataset.f);});
+
+/* ---------- quality layers ---------- */
+const LAYERS=[
+  {stg:'pre-commit',name:'Secret scan + format',what:'gitleaks on staged changes; prettier and markdownlint auto-fix',catches:['secret','format']},
+  {stg:'pre-push',name:'CodeRabbit CLI',what:'semantic review of the diff vs origin/main, before the push',catches:['logic','concurrency','security']},
+  {stg:'pre-push',name:'precheck gate',what:'build, lint, unit tests, changed E2E specs, prisma, bicep, docker, markdown',catches:['lint','unit','uistring']},
+  {stg:'CI on push',name:'Integration + eval',what:'real-Postgres integration suites, migrate-verify, frozen-fixture eval gate',catches:['tenant']},
+  {stg:'CI on ready',name:'Browser + a11y matrix',what:'Playwright across 17 screens, flake audit run three times, Lighthouse a11y floor',catches:['a11y']},
+  {stg:'main + cont.',name:'Trivy + Dependabot',what:'container CVE gate, dependency updates, SARIF to code scanning',catches:['cve','dep']}
+];
+const DEFECTS=[
+  {id:'secret',label:'Hardcoded credential',d:'a real key committed in source'},
+  {id:'logic',label:'Open-redirect from client input',d:'a client returnUrl passed straight to Stripe'},
+  {id:'concurrency',label:'Non-atomic claim',d:'read-then-write that double-creates under redelivery'},
+  {id:'lint',label:'React 19 set-state-in-effect',d:'a hook pattern the linter ratchets to error'},
+  {id:'unit',label:'Failing unit test',d:'an existing test now goes red'},
+  {id:'uistring',label:'Renamed UI string',d:'a golden-journey E2E spec no longer matches'},
+  {id:'tenant',label:'Dropped tenant filter',d:'a query that crosses a tenant boundary'},
+  {id:'a11y',label:'Contrast regression',d:'a color change that fails accessibility'},
+  {id:'cve',label:'Critical container CVE',d:'a base-image vulnerability'},
+  {id:'dep',label:'Vulnerable dependency',d:'an outdated package with a known CVE'}
+];
+const layersEl=document.getElementById('layers');
+LAYERS.forEach((g,i)=>{const el=document.createElement('div');el.className='layer';el.dataset.i=i;
+  el.innerHTML=`<span class="stg">${g.stg}</span><div class="body"><b>${g.name}</b><div>${g.what}</div></div><span class="vt"></span>`;
+  layersEl.appendChild(el);});
+const defectBtns=document.getElementById('defectBtns'),resultEl=document.getElementById('result');
+let active=null;
+DEFECTS.forEach(d=>{const b=document.createElement('button');b.className='defbtn';b.dataset.id=d.id;
+  b.innerHTML=`${d.label}<div class="d">${d.d}</div>`;
+  b.onclick=()=>{active=(active===d.id)?null:d.id;
+    [...defectBtns.children].forEach(c=>c.classList.toggle('on',c.dataset.id===active));paint();};
+  defectBtns.appendChild(b);});
+function paint(){
+  const rows=[...layersEl.children];
+  rows.forEach(r=>{r.className='layer';r.querySelector('.vt').textContent='';});
+  if(!active){resultEl.innerHTML='A clean change clears every layer and opens as a draft PR, already reviewed.';return;}
+  const first=LAYERS.findIndex(g=>g.catches.includes(active));
+  const d=DEFECTS.find(x=>x.id===active);
+  rows.forEach((r,i)=>{const vt=r.querySelector('.vt');
+    if(i<first){r.classList.add('passed');vt.textContent='pass';}
+    else if(i===first){r.classList.add('caught');vt.textContent='STOP';}
+    else{r.classList.add('dim');}});
+  const where=LAYERS[first];
+  resultEl.innerHTML=`<b>${d.label}</b> is caught at <b>${where.name}</b> (${where.stg}). Caught here it costs seconds; the layers below it never run.`;
+}
+
+/* ---------- learning cycle ---------- */
+const CYCLE=[
+  {n:'1',b:'Reviewer flags it',p:'CodeRabbit catches a finding on the diff, locally, before push.'},
+  {n:'2',b:'Recorded on the PR',p:'The finding and its resolution go in the cr-cli-findings comment.'},
+  {n:'3',b:'Closeout greps all PRs',p:'When the last PR merges, the ceremony pulls every marked comment.'},
+  {n:'4',b:'Group by family',p:'Findings are classified and counted across PRs, not fixed one by one.'},
+  {n:'5',b:'Write the lesson',p:'A family seen in two or more PRs becomes a lesson: trigger, failure, check.',feed:true},
+  {n:'6',b:'Next run reads first',p:'The next implementation reads lessons before coding, closing the loop.',feed:true}
+];
+const cycleEl=document.getElementById('cycle');
+CYCLE.forEach(c=>{const el=document.createElement('div');el.className='cnode'+(c.feed?' feed':'');
+  el.innerHTML=`<span class="num">step ${c.n}</span><b>${c.b}</b><p>${c.p}</p>`;cycleEl.appendChild(el);});
+
+/* ---------- lessons ---------- */
+const LESSONS=[
+  {file:'vitest-tenant-isolation-patterns.md',cat:['testing','security'],
+   one:'A tenant-isolation test can pass even when the tenant filter is dropped from the query.',
+   trigger:'Adding a tenant-scoped query, write, or table, or testing a NestJS service that uses Prisma.',
+   fail:'The test asserts only that a missing row throws, so a null-returning mock passes no matter what arguments it received; the dropped tenant predicate is invisible.',
+   fix:'Co-assert the exact call: expect(repo.find).toHaveBeenCalledWith(TENANT_A, ID). Write the test that goes red if the tenant predicate is removed.',
+   badges:['Major','recurred 4x / 3 PRs','headline family']},
+  {file:'test-docstring-vs-implementation-gap.md',cat:['testing'],
+   one:'A test that names a behavior but never exercises it is green for the wrong reason.',
+   trigger:'Writing a test whose name or header claims coverage, for example "should not propagate PII".',
+   fail:'The fixture has no PII, so the guard never fires; the assertion is vacuously true and would stay green even if the guard were deleted.',
+   fix:'Ask: if I remove the guard, does this test go red? For redaction, seed a real secret and assert the serialized output does not contain it.',
+   badges:['High','8 PRs','masked a Critical bug']},
+  {file:'idempotency-claim-must-write-a-marker.md',cat:['concurrency'],
+   one:'An exactly-once claim must write the field it gates on, in the same statement.',
+   trigger:'An idempotency gate for an at-least-once consumer that creates an external side effect (a ticket, an email, a charge).',
+   fail:'The claim checks externalTicketId is null, but that id is only written after the external call. On redelivery, or under two concurrent deliveries, both pass the check and double-create.',
+   fix:'Stamp a workItemClaimedAt marker in the claim updateMany before the external call; READ COMMITTED serializes the two writers so the loser matches zero rows. Clear it on every failure path.',
+   badges:['Major','concurrency']},
+  {file:'prisma-queryraw-uses-table-map-name.md',cat:['data'],
+   one:'Raw SQL must use the @@map name, not the Prisma model name.',
+   trigger:'Writing any $queryRaw or $executeRaw in a service.',
+   fail:'The model is ApiKey but the schema maps it to api_keys. The in-memory mock did not enforce table names, so unit tests passed and the live database failed with relation does not exist.',
+   fix:'Look up @@map and use that table name; match @map for every column; add a SQL-string assertion to the mock and verify with a real-database test.',
+   badges:['Major','masked a Critical bug']},
+  {file:'stripe-portal-security-returnurl.md',cat:['security'],
+   one:'A client-supplied returnUrl passed to Stripe is an open redirect.',
+   trigger:'A billing-portal session that forwards a client returnUrl into the provider call.',
+   fail:'Without validation, an attacker can redirect users to a phishing page after they exit the portal (CWE-601).',
+   fix:'Parse the URL and compare its origin against an env-sourced allowlist; throw BadRequest before calling Stripe if it is not allowlisted.',
+   badges:['Major','CWE-601']},
+  {file:'llm-judge-fenced-json-and-advisory-gates.md',cat:['ai'],
+   one:'A model wrapping its JSON in a code fence can turn a CI gate red with no code change.',
+   trigger:'Parsing an LLM response as JSON, or adding an LLM-as-judge step to a CI gate.',
+   fail:'The model began returning its payload inside a ```json fence; JSON.parse threw, the pass rate dropped to zero, and the gate blocked all deploys. Pure output-format drift, not a regression.',
+   fix:'Strip fences before parsing and prefer constrained json_schema output. Make LLM-judge gates advisory (continue-on-error) until proven stable across model versions.',
+   badges:['High','ADR-024']},
+  {file:'green-deploy-not-rolled-out.md',cat:['infra'],
+   one:'Deploying a Container App by the :latest tag is a no-op; the old digest keeps serving.',
+   trigger:'A merged feature is absent from the running environment while the deploy job exited green.',
+   fail:'Container Apps only mints a revision when the template changes. Re-deploying the same :latest string exits zero but changes nothing, so code sat on main for hours unrolled.',
+   fix:'Deploy by immutable digest with a unique revision suffix, then verify the active revision timestamp is now. Check the deploy trigger, not just the job result.',
+   badges:['High','deploy']},
+  {file:'react-19-setstate-in-effect.md',cat:['frontend'],
+   one:'React 19 ratchets set-state-in-effect to a hard error that blocks the PR.',
+   trigger:'Writing useEffect(() => setState(...)) in a dashboard component.',
+   fail:'The reach-for-it reset pattern fails lint as an error under the Next.js 16 and React 19 config.',
+   fix:'Push the reset into the close callback or derive with useMemo; wrap filter-linked resets in startTransition; reserve a targeted inline suppression for the genuine open-while-changing case.',
+   badges:['Major','React 19']}
+];
+const lessonsEl=document.getElementById('lessonGrid');
+function renderLessons(f){lessonsEl.innerHTML='';LESSONS.forEach(l=>{
+  const show=f==='all'||l.cat.includes(f);
+  const el=document.createElement('div');el.className='lesson'+(show?'':' hide');
+  el.innerHTML=`<div class="lt"><span class="file">${l.file}</span><span class="cat">${l.cat[0]}</span></div>
+    <div class="one">${l.one}</div>
+    <div class="more">
+      <div class="k">trigger</div><p>${l.trigger}</p>
+      <div class="k">failure mode</div><p>${l.fail}</p>
+      <div class="k">the check that prevents it</div><p>${l.fix}</p>
+    </div>
+    <div class="badges">${l.badges.map(b=>`<span class="tag sev">${b}</span>`).join('')}</div>`;
+  el.onclick=()=>el.classList.toggle('open');
+  lessonsEl.appendChild(el);});}
+renderLessons('all');
+document.getElementById('lfilters').addEventListener('click',e=>{const b=e.target.closest('.fbtn');if(!b)return;
+  [...document.querySelectorAll('#lfilters .fbtn')].forEach(x=>x.classList.toggle('on',x===b));renderLessons(b.dataset.f);});
+
+const INV=[
+  {b:'Database files need a Dockerfile COPY',p:'A new TypeScript file in services/database exported via index.ts needs a COPY line in every consumer Dockerfile, or the container build fails with TS2307 while local builds pass.'},
+  {b:'Next.js 16 uses proxy.ts only',p:'Use proxy.ts, never middleware.ts. Both present is a build error. Recurs because the old convention is muscle memory.'},
+  {b:'KPI priorities need a metric row',p:'Any path that captures kpiPriorities must also reconcile a BusinessImpactMetric row, or the attribution pipeline looks successful and silently produces nothing.'}
+];
+const invEl=document.getElementById('invariants');
+INV.forEach(i=>{const el=document.createElement('div');el.className='inv';
+  el.innerHTML=`<b>${i.b}</b><p>${i.p}</p>`;invEl.appendChild(el);});
+
+/* ---------- takeaways ---------- */
+const TAKE=[
+  {n:'01',b:'Map roles to model tiers with a written escalation rule.',p:'Routing becomes a decision you can audit, not a fresh guess. Default cheap, escalate on architecture, concurrency, migrations, and security.'},
+  {n:'02',b:'Make one stage of the spec adversarial.',p:'Have a security or risk persona attack the design and feed required changes back into product and architecture before any code exists.'},
+  {n:'03',b:'Enforce one plan phase equals one PR at planning time.',p:'Carry a required Phase field on every issue. Downstream automation depends on the shape, so make it impossible to skip.'},
+  {n:'04',b:'Run the AI reviewer locally, before the push.',p:'Resolve findings on your machine so the PR opens already clean and the first CI run is the last. Turn off cloud auto-review to avoid a post-push loop.'},
+  {n:'05',b:'Persist every finding in a greppable PR comment.',p:'A single marked comment per PR makes findings durable and machine-readable after the merge. It is the input to everything downstream.'},
+  {n:'06',b:'Catch each defect class at the cheapest layer that can see it.',p:'Secrets at commit, semantics before push, integration in CI, accessibility on ready. Defense in depth, ordered by cost.'},
+  {n:'07',b:'Make non-deterministic gates advisory, not blocking.',p:'An LLM-as-judge that fails on model output drift should never wall off all deploys. Promote to blocking only after it is proven stable.'},
+  {n:'08',b:'Close the loop in writing, by family.',p:'Mine recurring findings into lessons the next run reads first. A finding in two or more PRs is a rule, not a one-off. This is what makes the system improve.'},
+  {n:'09',b:'Package your design system as a loadable skill.',p:'Capture tokens, components, and brand rules once as a versioned artifact the agent reads on demand. Output is on-brand by construction, not by reminder.'},
+  {n:'10',b:'Close the design loop in the real browser.',p:'Have the agent compare the proposal against the running app through a browser tool, fix drift in source, and re-verify. Cap the attempts per gap and escalate the rest.'}
+];
+const takeEl=document.getElementById('take');
+TAKE.forEach(t=>{const el=document.createElement('div');el.className='tk';
+  el.innerHTML=`<span class="n">${t.n}</span><b>${t.b}</b><p>${t.p}</p>`;takeEl.appendChild(el);});
+</script>
+</body>
+</html>
