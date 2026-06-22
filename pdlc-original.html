@@ -59,15 +59,6 @@
   .card .nm{fill:var(--ink);font-size:11.5px;font-weight:550}
   .cp rect.bx{fill:#2a2415;stroke:var(--cp)}
   .cp .nm{fill:#f0dca0}
-  .bandcard rect.bx{fill:#1b232e;stroke:var(--line2);stroke-width:1.4}
-  .bandcard:hover rect.bx{stroke:var(--accent)}
-  .bandcard .bn{fill:var(--ink);font-size:12.5px;font-weight:650}
-  .bandcard .bc{fill:var(--ink-dim);font-size:10.5px;font-weight:500}
-  .btoggle{cursor:pointer}
-  .btoggle circle{fill:var(--panel2);stroke:var(--line2)}
-  .btoggle text{fill:var(--ink-dim);font-size:15px;font-weight:700}
-  .btoggle:hover circle{stroke:var(--accent)}
-  .btoggle:hover text{fill:var(--ink)}
   .edge{fill:none}
   .e-precede{stroke:var(--line2);stroke-width:1.5}
   .e-loop{stroke:var(--loop);stroke-width:1.7;stroke-dasharray:5 4}
@@ -194,79 +185,11 @@
     border:1px solid var(--line2);color:var(--ink-dim);border-radius:7px;padding:7px 12px;
     font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px}
   .resetbtn:hover{color:var(--ink);border-color:var(--accent)}
-  /* mobile chrome — hidden on desktop */
-  #menuToggle{display:none}
-  #backdrop{display:none}
-
-  /* ---------------- MOBILE / ADAPTIVE ---------------- */
-  @media (max-width:760px){
-    /* header: row 1 = menu + title + search, row 2 = scrollable tabs */
-    header{padding:0 8px;gap:8px;align-items:center}
-    #menuToggle{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
-      width:34px;height:34px;padding:0;border-radius:7px;cursor:pointer;font-size:16px;
-      background:var(--panel2);border:1px solid var(--line2);color:var(--ink)}
-    #menuToggle:active{background:var(--line)}
-    header h1{font-size:13px;padding:9px 0;flex:1 1 0;min-width:0;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    header h1 span{display:none}
-    #search{margin-left:0;flex:0 0 116px;width:116px}
-    .tabs{order:5;flex:1 1 100%;align-self:stretch;overflow-x:auto;overflow-y:hidden;
-      -webkit-overflow-scrolling:touch;gap:0;border-top:1px solid var(--line);scrollbar-width:none}
-    .tabs::-webkit-scrollbar{display:none}
-    .tab{padding:10px 13px;flex:0 0 auto}
-
-    /* sidebar becomes an off-canvas drawer */
-    #side{position:fixed;left:0;top:0;height:100%;width:84%;max-width:300px;
-      flex-basis:auto;z-index:40;transform:translateX(-104%);
-      transition:transform .22s ease;box-shadow:10px 0 34px #000a;padding-top:18px}
-    body.drawer-open #side{transform:none}
-    #backdrop{display:block;position:fixed;inset:0;background:#000a;z-index:35;
-      opacity:0;pointer-events:none;transition:opacity .22s}
-    body.drawer-open #backdrop{opacity:1;pointer-events:auto}
-
-    /* view + spatial svg fit to width, touch driven */
-    #view{width:100%}
-    #view svg{width:100%;height:auto;max-width:100%}
-    svg{touch-action:none}
-
-    /* detail panel full width */
-    #detail{width:100%;padding:18px 16px 50px;box-shadow:none}
-    #detail h3{margin-right:50px}
-
-    /* floating controls: avoid sidebar offset + hint overlap */
-    .resetbtn{left:10px;bottom:10px}
-    .hint{display:none}
-
-    /* dense tables/grids */
-    .gridwrap{padding:14px 12px 60px}
-    .prodgrid,.liblist{grid-template-columns:1fr}
-
-    /* sources citations: reflow table rows into stacked cards */
-    .srcwrap table.src,.srcwrap table.src tbody{display:block;width:100%}
-    .srcwrap table.src thead{display:none}
-    .srcwrap table.src tr{display:block;background:var(--panel);border:1px solid var(--line);
-      border-radius:10px;padding:12px 14px;margin-bottom:12px}
-    .srcwrap table.src td{display:block;padding:0;border:none;max-width:none}
-    .srcwrap table.src td.csrc{font-size:14px;font-weight:650;color:var(--ink);
-      padding-right:46px;line-height:1.35;margin-bottom:8px}
-    .srcwrap table.src td.cid{position:absolute;margin-top:1px;right:14px;color:var(--ink-faint);font-size:11px}
-    .srcwrap table.src tr{position:relative}
-    .srcwrap table.src td.cuse,.srcwrap table.src td.crec{position:relative;padding-left:0;
-      color:var(--ink-dim);line-height:1.45;margin-top:8px}
-    .srcwrap table.src td.cuse::before,.srcwrap table.src td.crec::before,
-    .srcwrap table.src td.ctier::before{content:attr(data-label);display:block;
-      font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-faint);
-      font-weight:700;margin-bottom:3px}
-    .srcwrap table.src td.ctier{margin-top:8px}
-    .srcwrap table.src td.crec a{font-size:13px}
-    .srcwrap table.src .cnote{max-width:none;margin-top:4px}
-  }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <button id="menuToggle" aria-label="Toggle panel">☰</button>
     <h1>Product Development Lifecycle <span>· concept graph</span></h1>
     <div class="tabs" id="tabs"></div>
     <input id="search" placeholder="Search…" autocomplete="off"/>
@@ -276,7 +199,6 @@
     <div id="view"></div>
   </div>
   <div id="detail"><div class="x" onclick="closeDetail()">×</div><div id="detail-body"></div></div>
-  <div id="backdrop"></div>
   <div class="hint" id="hint"></div>
   <button class="resetbtn" id="resetbtn" onclick="resetView()">⤢ Reset view</button>
 </div>
@@ -311,13 +233,8 @@ function wrap(s,max,maxLines){const w=s.split(' ');const lines=[];let cur='';
 const TABS=['Lifecycle map','Track map','Method overlay','Practices','Operating model','Tooling map','Products','Measurement map','Sources'];
 let active='Lifecycle map';
 const tabsEl=document.getElementById('tabs');
-TABS.forEach(t=>{const b=E('button','tab',tabsEl,t);b.onclick=()=>{active=t;closeDrawer();draw();};});
-
-/* ---------------- MOBILE DRAWER ---------------- */
-function closeDrawer(){document.body.classList.remove('drawer-open');}
-document.getElementById('menuToggle').addEventListener('click',()=>document.body.classList.toggle('drawer-open'));
-document.getElementById('backdrop').addEventListener('click',closeDrawer);
-const lifecycleState={loops:true,collapsed:new Set()};
+TABS.forEach(t=>{const b=E('button','tab',tabsEl,t);b.onclick=()=>{active=t;draw();};});
+const lifecycleState={loops:true};
 let _resetView=null;
 function resetView(){ if(_resetView) _resetView(); }
 
@@ -338,21 +255,8 @@ function sideHead(title,desc){const s=document.getElementById('side');
 
 /* ---------------- LIFECYCLE (spatial) ---------------- */
 const CARDW=182,CARDH=70,COLW=222,VGAP=26,TOP=70,LEFT=36;
-const COLGAP=40,CARDWc=160,COLLH=92;
-function lcCollapsed(id){return lifecycleState.collapsed.has(id);}
-function lcToggleBand(id){ if(lcCollapsed(id))lifecycleState.collapsed.delete(id); else lifecycleState.collapsed.add(id); draw(); }
 function viewLifecycle(){
-  const s=sideHead('Lifecycle map','The canonical backbone from signal to retirement. Seven bands, left to right; stages flow top-to-bottom within each band. Start collapsed for the big picture, then open the bands you want to dig into.');
-  // overview density control
-  E('h2',null,s,'Overview');
-  const allCol=bands.every(b=>lcCollapsed(b.identifier));
-  const noneCol=bands.every(b=>!lcCollapsed(b.identifier));
-  const seg=E('div','segtoggle',s);
-  const bCol=E('button','segbtn'+(allCol?' on':''),seg,'Collapsed');
-  const bExp=E('button','segbtn'+(noneCol?' on':''),seg,'Expanded');
-  bCol.onclick=()=>{bands.forEach(b=>lifecycleState.collapsed.add(b.identifier));draw();};
-  bExp.onclick=()=>{lifecycleState.collapsed.clear();draw();};
-  E('div','prodhint',s,'Tap a band header (＋ / －) to open or close just that vertical.');
+  const s=sideHead('Lifecycle map','The canonical backbone from signal to retirement. Seven bands, left to right; stages flow top-to-bottom within each band. Toggle the feedback loops and checkpoint routes that make this a graph, not a line.');
   E('h2',null,s,'Backbone');
   const lp=E('div','layer'+(lifecycleState.loops?' on':''),s);
   lp.innerHTML='<span class="ln" style="border-top-color:var(--loop);border-top-style:dashed"></span><span>Feedback loops & routes</span><span class="chk">✓</span>';
@@ -365,40 +269,19 @@ function viewLifecycle(){
     const r=E('div','legendrow',s);r.innerHTML=`<span class="ln" style="border-top-color:${c};border-top-style:${st}"></span>${n}`;});
   const ccr=E('div','legendrow',s);ccr.innerHTML='<span class="sw" style="background:transparent;border:1px dashed var(--kind-validation)"></span>cross-cutting lane';
 
-  // per-band x/width (collapsed columns are narrower)
-  const bandX={},bandW={},ccByBand={};
-  let xc=LEFT;
-  bands.forEach(b=>{
+  const pos={}; const ccByBand={};
+  bands.forEach((b,ci)=>{
     ccByBand[b.identifier]=stagesByBand[b.identifier].filter(n=>n.crosscutting);
-    bandW[b.identifier]=lcCollapsed(b.identifier)?CARDWc:CARDW;
-    bandX[b.identifier]=xc; xc+=bandW[b.identifier]+COLGAP;
-  });
-  const rightEdge=xc-COLGAP;
-  // stage positions (expanded bands only); collapsed bands get one band-card anchor
-  const pos={},bandCard={};
-  bands.forEach(b=>{
-    const bx=bandX[b.identifier],bw=bandW[b.identifier];
-    if(lcCollapsed(b.identifier)){
-      bandCard[b.identifier]={x:bx,y:TOP,w:bw,h:COLLH,cx:bx+bw/2,cy:TOP+COLLH/2};
-    }else{
-      stagesByBand[b.identifier].filter(n=>!n.crosscutting).forEach((n,ri)=>{
-        const x=bx,y=TOP+ri*(CARDH+VGAP);
-        pos[n.identifier]={x,y,w:bw,h:CARDH,cx:x+bw/2,cy:y+CARDH/2};});
-    }
-  });
-  // anchor for an edge endpoint: its stage card, or its band card when collapsed
-  const anchor=id=>pos[id]||bandCard[byId[id].band_identifier]||null;
-  const bandH=b=>lcCollapsed(b.identifier)?COLLH:Math.max(1,stagesByBand[b.identifier].filter(n=>!n.crosscutting).length)*(CARDH+VGAP)-VGAP;
-  const contentBottom=TOP+Math.max(...bands.map(bandH));
-  const bandBottom=contentBottom+12;
+    stagesByBand[b.identifier].filter(n=>!n.crosscutting).forEach((n,ri)=>{
+      const x=LEFT+ci*COLW,y=TOP+ri*(CARDH+VGAP);
+      pos[n.identifier]={x,y,cx:x+CARDW/2,cy:y+CARDH/2};});});
+  const maxRows=Math.max(...bands.map(b=>stagesByBand[b.identifier].filter(n=>!n.crosscutting).length));
+  const bandBottom=TOP+maxRows*(CARDH+VGAP)-VGAP+12;
   const ccStripY=bandBottom+14;
-  const hasCC=bands.some(b=>!lcCollapsed(b.identifier)&&ccByBand[b.identifier].length);
-  const maxCC=Math.max(0,...bands.filter(b=>!lcCollapsed(b.identifier)).map(b=>ccByBand[b.identifier].length));
-  const ccBottom=hasCC?ccStripY+maxCC*44:bandBottom;
-  const loopLaneY=ccBottom+24;
+  const hasCC=bands.some(b=>ccByBand[b.identifier].length);
+  const loopLaneY=(hasCC?ccStripY+50:bandBottom+24);
   const loopEdges=edges.filter(e=>e.type==='can_loop_to'||e.type==='routes_to');
-  const visLoop=lifecycleState.loops?loopEdges.filter(e=>pos[e.from]&&pos[e.to]):[];
-  const W=rightEdge+36, H=loopLaneY+(visLoop.length?visLoop.length*16+40:16);
+  const W=LEFT+bands.length*COLW+20, H=loopLaneY+ (lifecycleState.loops? loopEdges.length*16+40 : 30);
   const view=document.getElementById('view');
   const svg=el('svg',{width:W,height:H,viewBox:`0 0 ${W} ${H}`,id:'svg'},view);
   const scene=el('g',{},svg);
@@ -407,85 +290,58 @@ function viewLifecycle(){
   [['a-pre','var(--line2)'],['a-loop','var(--loop)'],['a-route','var(--route)']].forEach(([id,c])=>{
     const m=el('marker',{id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},defs);
     el('path',{d:'M0,0 L10,5 L0,10z',fill:c},m);});
-  // band columns + headers + collapse toggles
-  bands.forEach(b=>{
-    const bx=bandX[b.identifier],bw=bandW[b.identifier],col=lcCollapsed(b.identifier);
-    if(!col){
-      el('rect',{x:bx-16,y:TOP-12,width:bw+32,height:bandH(b)+24,rx:12,fill:'#ffffff04',stroke:'var(--line)'},scene);
-    }
-    const cx=bx+bw/2;
-    const hl=wrap(`${b.sequence_number}. ${b.name}`,col?16:18,3);
+  // band columns
+  bands.forEach((b,ci)=>{
+    const x=LEFT+ci*COLW-16;
+    el('rect',{x,y:TOP-12,width:CARDW+32,height:maxRows*(CARDH+VGAP)-VGAP+24,rx:12,fill:'#ffffff04',stroke:'var(--line)'},scene);
+    const cx=x+(CARDW+32)/2;
+    const hl=wrap(`${b.sequence_number}. ${b.name}`,18,3);
     const t=el('text',{x:cx,y:TOP-16-(hl.length-1)*13,'text-anchor':'middle',class:'bandlabel'},scene);
-    hl.forEach((ln,i)=>{const ts=el('tspan',{x:cx,dy:i?13:0},t);ts.textContent=ln;});
-    // collapse / expand toggle button (top-right of column)
-    btoggle(scene,bx+bw+2,TOP-2,col?'＋':'－',b.identifier);
-  });
+    hl.forEach((ln,i)=>{const ts=el('tspan',{x:cx,dy:i?13:0},t);ts.textContent=ln;});});
   const eL=el('g',{},scene);
-  // precedes backbone (routed through band anchors when collapsed)
+  // precedes: within-column vertical (gap), cross-column via gutter elbow
   edges.filter(e=>e.type==='precedes').forEach(e=>{
-    const a=anchor(e.from),z=anchor(e.to);if(!a||!z||a===z)return;
-    if(Math.abs(a.x-z.x)<1){ // same column → straight vertical
-      el('path',{d:`M${a.cx},${a.y+a.h} L${z.cx},${z.y}`,class:'edge e-precede','marker-end':'url(#a-pre)'},eL);
-    }else if(Math.abs(a.cy-z.cy)<1&&z.x>a.x){ // same row, target to the right → straight horizontal
-      el('path',{d:`M${a.x+a.w},${a.cy} L${z.x},${z.cy}`,class:'edge e-precede','marker-end':'url(#a-pre)'},eL);
-    }else{ // elbow through the gutter between the two cards
-      const gx=(a.x+a.w+z.x)/2;
-      const d=`M${a.x+a.w},${a.cy} L${gx},${a.cy} L${gx},${z.y-14} L${z.cx},${z.y-14} L${z.cx},${z.y}`;
+    const a=pos[e.from],z=pos[e.to];if(!a||!z)return;
+    if(Math.abs(a.x-z.x)<1){ el('path',{d:`M${a.cx},${a.y+CARDH} L${z.cx},${z.y}`,class:'edge e-precede','marker-end':'url(#a-pre)'},eL);}
+    else{ const gx=a.x+CARDW+ (COLW-CARDW)/2; // gutter center between columns
+      const d=`M${a.x+CARDW},${a.cy} L${gx},${a.cy} L${gx},${z.y-14} L${z.cx},${z.y-14} L${z.cx},${z.y}`;
       el('path',{d,class:'edge e-precede','marker-end':'url(#a-pre)','stroke-opacity':.7},eL);}
   });
-  // loop lane (only edges whose both endpoints are expanded)
-  visLoop.forEach((e,i)=>{
-    const a=pos[e.from],z=pos[e.to];
-    const lane=loopLaneY+i*16;const cls=e.type==='can_loop_to'?'e-loop':'e-route';
-    const mk=e.type==='can_loop_to'?'url(#a-loop)':'url(#a-route)';
-    const d=`M${a.cx},${a.y+a.h} L${a.cx},${lane} L${z.cx},${lane} L${z.cx},${z.y+z.h}`;
-    el('path',{d,class:'edge '+cls,'marker-end':mk},eL);
-    const lt=el('text',{x:(a.cx+z.cx)/2,y:lane-4,'text-anchor':'middle',class:'elabel',fill:e.type==='can_loop_to'?'var(--loop)':'var(--route)'},eL);
-    lt.textContent=(byId[e.from].name.split(' ')[0])+' → '+byId[e.to].name+(e.label?` (${e.label})`:'');
-  });
-  // stage cards (expanded bands)
+  // loop lane (orthogonal, staggered)
+  if(lifecycleState.loops){
+    loopEdges.forEach((e,i)=>{
+      const a=pos[e.from],z=pos[e.to];if(!a||!z)return;
+      const lane=loopLaneY+i*16;const cls=e.type==='can_loop_to'?'e-loop':'e-route';
+      const mk=e.type==='can_loop_to'?'url(#a-loop)':'url(#a-route)';
+      const d=`M${a.cx},${a.y+CARDH} L${a.cx},${lane} L${z.cx},${lane} L${z.cx},${z.y+CARDH}`;
+      el('path',{d,class:'edge '+cls,'marker-end':mk},eL);
+      const lt=el('text',{x:(a.cx+z.cx)/2,y:lane-4,'text-anchor':'middle',class:'elabel',fill:e.type==='can_loop_to'?'var(--loop)':'var(--route)'},eL);
+      lt.textContent=(byId[e.from].name.split(' ')[0])+' → '+byId[e.to].name+(e.label?` (${e.label})`:'');
+    });
+  }
+  // cards
   GRAPH.nodes.filter(n=>pos[n.identifier]).forEach(n=>{
     const p=pos[n.identifier],isCp=n.type==='checkpoint';
     const g=el('g',{class:'card'+(isCp?' cp':''),transform:`translate(${p.x},${p.y})`},scene);
-    el('rect',{class:'bx',x:0,y:0,width:p.w,height:CARDH,rx:9},g);
+    el('rect',{class:'bx',x:0,y:0,width:CARDW,height:CARDH,rx:9},g);
     if(!isCp)el('rect',{x:0,y:0,width:5,height:CARDH,rx:2,fill:`var(${KIND[n.stage_kind]||'--line'})`},g);
-    if(isCp)el('text',{x:p.w-10,y:16,'text-anchor':'end',class:'elabel',fill:'var(--cp)'},g).textContent='◆ GATE';
+    if(isCp)el('text',{x:CARDW-10,y:16,'text-anchor':'end',class:'elabel',fill:'var(--cp)'},g).textContent='◆ GATE';
     const lines=wrap(n.name,22,3);const startY=CARDH/2-(lines.length-1)*7+ (isCp?4:0);
     lines.forEach((ln,i)=>{const t=el('text',{x:14,y:startY+i*14,class:'nm'},g);t.textContent=ln;});
     g.onclick=ev=>{ev.stopPropagation();openDetail(n.identifier);};
   });
-  // collapsed band cards (the "top-level topic")
-  bands.filter(b=>lcCollapsed(b.identifier)).forEach(b=>{
-    const c=bandCard[b.identifier];
-    const stages=stagesByBand[b.identifier];
-    const g=el('g',{class:'card bandcard',transform:`translate(${c.x},${c.y})`},scene);
-    el('rect',{class:'bx',x:0,y:0,width:c.w,height:c.h,rx:10},g);
-    const nl=wrap(b.name,18,3);const sy=20+(nl.length<3?(3-nl.length)*7:0);
-    nl.forEach((ln,i)=>{el('text',{x:12,y:sy+i*15,class:'bn'},g).textContent=ln;});
-    el('text',{x:12,y:c.h-12,class:'bc'},g).textContent=`▸ ${stages.length} stage${stages.length>1?'s':''} · tap to expand`;
-    g.onclick=ev=>{ev.stopPropagation();lcToggleBand(b.identifier);};
-  });
-  // cross-cutting lanes (expanded bands only)
-  bands.forEach(b=>{ if(lcCollapsed(b.identifier))return;
-    ccByBand[b.identifier].forEach((n,k)=>{
-      const x=bandX[b.identifier]-16,y=ccStripY+k*44,w=bandW[b.identifier]+32;
-      const g=el('g',{class:'card',transform:`translate(${x},${y})`},scene);
-      el('rect',{x:0,y:0,width:w,height:38,rx:8,fill:'#22282f',stroke:'var(--kind-validation)','stroke-width':1.3,'stroke-dasharray':'5 4'},g);
-      el('text',{x:11,y:15,class:'elabel',fill:'var(--kind-validation)'},g).textContent='⋈ CROSS-CUTTING';
-      const t=el('text',{x:11,y:30,class:'nm'},g);t.setAttribute('font-size','10.5');t.textContent=n.name;
-      g.onclick=ev=>{ev.stopPropagation();openDetail(n.identifier);};
-    });
-  });
+  // cross-cutting lanes (below the band column, out of the precedes chain)
+  bands.forEach((b,ci)=>ccByBand[b.identifier].forEach((n,k)=>{
+    const x=LEFT+ci*COLW-16,y=ccStripY+k*44,w=CARDW+32;
+    const g=el('g',{class:'card',transform:`translate(${x},${y})`},scene);
+    el('rect',{x:0,y:0,width:w,height:38,rx:8,fill:'#22282f',stroke:'var(--kind-validation)','stroke-width':1.3,'stroke-dasharray':'5 4'},g);
+    el('text',{x:11,y:15,class:'elabel',fill:'var(--kind-validation)'},g).textContent='⋈ CROSS-CUTTING';
+    const t=el('text',{x:11,y:30,class:'nm'},g);t.setAttribute('font-size','10.5');t.textContent=n.name;
+    g.onclick=ev=>{ev.stopPropagation();openDetail(n.identifier);};
+  }));
   enablePanZoom(svg,W,H);
   document.getElementById('hint').style.display='';
-  document.getElementById('hint').textContent='drag to pan · scroll to zoom · ＋/－ a band · click a stage';
-}
-function btoggle(parent,cx,cy,sign,bandId){
-  const g=el('g',{class:'btoggle'},parent);
-  el('circle',{cx,cy,r:9},g);
-  const t=el('text',{x:cx,y:cy+5,'text-anchor':'middle'},g);t.textContent=sign;
-  g.onclick=ev=>{ev.stopPropagation();lcToggleBand(bandId);};
-  return g;
+  document.getElementById('hint').textContent='drag to pan · scroll to zoom · click a stage';
 }
 
 /* ---------------- MATRIX builder ---------------- */
@@ -740,13 +596,13 @@ function viewSources(){
   const tb=E('tbody',null,tbl);
   SOURCES.cited.forEach(c=>{
     const tr=E('tr',null,tb);
-    E('td','cid',tr,c.id).setAttribute('data-label','#');
-    E('td','csrc',tr,c.source).setAttribute('data-label','Cited source');
-    E('td','cuse',tr,c.usedFor).setAttribute('data-label','Used for');
-    const tdt=E('td','ctier',tr);tdt.setAttribute('data-label','Authority');
+    E('td','cid',tr,c.id);
+    E('td','csrc',tr,c.source);
+    E('td','cuse',tr,c.usedFor);
+    const tdt=E('td','ctier',tr);
     const pill=E('span','pill',tdt,c.tier);pill.style.background=tierC[c.tier]+'22';pill.style.color=tierC[c.tier];
     if(c.note){const nt=E('div','cnote',tdt,c.note);}
-    const tdr=E('td','crec',tr);tdr.setAttribute('data-label','Recommended primary');
+    const tdr=E('td','crec',tr);
     const a=E('a',null,tdr,c.recommend);a.href=c.recommendUrl;a.target='_blank';a.rel='noopener';
   });
 
@@ -813,30 +669,6 @@ function enablePanZoom(svg,W,H){
   svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect();
     const mx=vb.x+(e.clientX-r.left)/r.width*vb.w,my=vb.y+(e.clientY-r.top)/r.height*vb.h;
     const f=e.deltaY>0?1.1:0.9;vb.w*=f;vb.h*=f;vb.x=mx-(e.clientX-r.left)/r.width*vb.w;vb.y=my-(e.clientY-r.top)/r.height*vb.h;set();},{passive:false});
-  // touch: one finger pans, two fingers pinch-zoom
-  let tdrag=false,pinch=false,tsx=0,tsy=0,pd=0;
-  const td=t=>{const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.hypot(dx,dy);};
-  svg.addEventListener('touchstart',e=>{
-    if(e.touches.length===1){tdrag=true;pinch=false;tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;}
-    else if(e.touches.length>=2){pinch=true;tdrag=false;pd=td(e.touches);}
-  },{passive:false});
-  svg.addEventListener('touchmove',e=>{
-    e.preventDefault();const r=svg.getBoundingClientRect();
-    if(pinch&&e.touches.length>=2){
-      const nd=td(e.touches),cx=(e.touches[0].clientX+e.touches[1].clientX)/2,cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
-      const mx=vb.x+(cx-r.left)/r.width*vb.w,my=vb.y+(cy-r.top)/r.height*vb.h;
-      const f=nd>0?pd/nd:1;vb.w*=f;vb.h*=f;
-      vb.x=mx-(cx-r.left)/r.width*vb.w;vb.y=my-(cy-r.top)/r.height*vb.h;pd=nd;set();
-    }else if(tdrag&&e.touches.length===1){
-      const t=e.touches[0];
-      vb.x-=(t.clientX-tsx)*vb.w/r.width;vb.y-=(t.clientY-tsy)*vb.h/r.height;
-      tsx=t.clientX;tsy=t.clientY;set();
-    }
-  },{passive:false});
-  svg.addEventListener('touchend',e=>{
-    if(e.touches.length===0){tdrag=false;pinch=false;}
-    else if(e.touches.length===1){tdrag=true;pinch=false;tsx=e.touches[0].clientX;tsy=e.touches[0].clientY;}
-  });
 }
 
 draw();
