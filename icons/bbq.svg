@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="flame" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFA500;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DC2626;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Flame shape -->
+  <path d="M50 10 C40 30, 45 40, 50 55 C55 40, 60 30, 50 10 Z" fill="url(#flame)" />
+  <path d="M50 30 C45 40, 47 45, 50 55 C53 45, 55 40, 50 30 Z" fill="#FFFFFF" opacity="0.5" />
+  <!-- Smoke wisps -->
+  <ellipse cx="45" cy="8" rx="3" ry="5" fill="#6B7280" opacity="0.3" />
+  <ellipse cx="55" cy="5" rx="3" ry="6" fill="#6B7280" opacity="0.2" />
+</svg>

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Athanasius — Under the Hood</title>
+<meta name="description" content="How Ask Athanasius works: a multi-source sermon corpus, full-corpus vector retrieval over ~490k chunks, multi-provider LLM generation, and citations that always point home.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23faf7f2'/%3E%3Ctext x='8' y='12' font-family='Georgia' font-size='11' text-anchor='middle' fill='%23a3542f'%3EA%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --paper:#faf7f2; --paper-1:#f3eee6; --paper-2:#ece5da; --line:#ddd3c4;
+    --ink:#3a3530; --muted:#6f665c; --dim:#948a7d;
+    --rubric:#a3542f; --rubric-strong:#8b3a23; --rubric-tint:rgba(163,84,47,.08);
+    --gold:#b8860b; --green:#4a7c59;
+    --serif:"Source Serif 4","Source Serif Pro",Georgia,serif;
+    --sans:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;
+    --mono:"Spline Sans Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);line-height:1.65;font-size:17px}
+  a{color:var(--rubric);text-decoration:none} a:hover{color:var(--rubric-strong);text-decoration:underline}
+  .wrap{max-width:920px;margin:0 auto;padding:0 22px}
+  header.site{border-bottom:1px solid var(--line);padding:14px 0;background:var(--paper)}
+  header.site .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .brand{font-family:var(--serif);font-size:15px;color:var(--ink)}
+  .brand b{color:var(--rubric)}
+  .crumb{margin-left:auto;font-family:var(--sans);font-size:12.5px;color:var(--muted)}
+  section{padding:44px 0;border-bottom:1px solid var(--line)}
+  .kicker{font-family:var(--sans);font-size:11.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--rubric);font-weight:600}
+  h1{font-size:clamp(28px,4.5vw,44px);line-height:1.08;margin:.25em 0;letter-spacing:-.3px;font-weight:600}
+  h2{font-size:clamp(21px,3vw,30px);margin:.2em 0 .4em;font-weight:600}
+  h3{font-size:17px;margin:0 0 .3em;font-family:var(--sans);font-weight:600}
+  .lede{font-size:clamp(16px,2vw,19px);color:#54493d;max-width:64ch}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+  .pill{font-family:var(--sans);font-size:11px;letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:3px 11px;color:var(--muted);background:var(--paper-1)}
+  .pill.status{color:var(--rubric);border-color:color-mix(in srgb,var(--rubric) 40%,var(--line))}
+
+  /* answer pipeline — stations (interactive-explainer grammar, paper edition) */
+  .track{margin:26px 0 6px;position:relative;overflow-x:auto}
+  .track svg{width:100%;height:auto;display:block}
+  .station{cursor:pointer}
+  .station .ring{fill:var(--paper);stroke:var(--dim);stroke-width:2;transition:.15s}
+  .station .core{fill:var(--dim);transition:.15s}
+  .station .lbl{fill:var(--muted);font-size:14px;font-weight:600;font-family:var(--sans)}
+  .station .sub{fill:var(--muted);font-family:var(--mono);font-size:12px}
+  .station:hover .ring{stroke:var(--ink)} .station:hover .lbl{fill:var(--ink)}
+  .station:focus{outline:none}
+  .station:focus-visible .ring{stroke:var(--rubric);stroke-dasharray:3 3}
+  .station.active .ring{stroke:var(--rubric)}
+  .station.active .core{fill:var(--rubric)}
+  .station.active .lbl{fill:var(--rubric-strong)}
+  .station.active .sub{fill:var(--rubric)}
+  .tredge path{fill:none;stroke-width:2}
+  .trackNav{display:flex;align-items:center;gap:12px;margin:6px 0 4px}
+  .navbtn{font-family:var(--sans);font-size:12.5px;color:var(--muted);background:var(--paper-1);border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
+  .navbtn:hover:not(:disabled){color:var(--ink);border-color:var(--rubric)}
+  .navbtn:disabled{opacity:.4;cursor:default}
+  .trackPos{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .detail{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-top:14px;box-shadow:0 1px 3px rgba(58,53,48,.06)}
+  .detail .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .detail .cmd{font-family:var(--mono);font-size:12px;color:var(--rubric);background:var(--rubric-tint);border:1px solid color-mix(in srgb,var(--rubric) 30%,var(--line));padding:3px 9px;border-radius:6px}
+  .detail ul{margin:.4em 0 0;padding-left:18px}
+  .detail li{margin:.4em 0;color:#54493d;font-size:15px}
+  code{font-family:var(--mono);font-size:.88em;color:var(--rubric-strong);background:var(--rubric-tint);padding:1px 5px;border-radius:4px}
+
+  /* ETL stages */
+  .etl{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:20px;counter-reset:e}
+  .stage{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 15px;position:relative}
+  .stage:before{counter-increment:e;content:counter(e);position:absolute;top:12px;right:14px;width:22px;height:22px;border-radius:50%;background:var(--rubric-tint);color:var(--rubric);font-family:var(--sans);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .stage h3{font-size:14.5px;margin:0 0 4px}
+  .stage p{font-family:var(--sans);font-size:12.5px;color:var(--muted);margin:0;line-height:1.5}
+
+  /* decisions table */
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:14px;font-family:var(--sans)}
+  th{text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);padding:8px 10px;border-bottom:2px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--line);color:#54493d;vertical-align:top}
+  td:first-child{color:var(--ink);font-weight:600;white-space:normal}
+  .tablewrap{overflow-x:auto}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .chip{font-family:var(--sans);font-size:12.5px;color:var(--muted);background:var(--paper-1);border:1px solid var(--line);border-radius:999px;padding:5px 13px}
+  .sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:18px}
+  .src{background:#fff;border:1px solid var(--line);border-left:3px solid var(--rubric);border-radius:10px;padding:13px 15px}
+  .src h3{font-size:14.5px;margin:0 0 3px}
+  .src p{font-family:var(--sans);font-size:12.5px;color:var(--muted);margin:0}
+  footer{padding:26px 0 40px;color:var(--dim);font-size:13px;font-family:var(--sans)}
+  footer .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  @media(max-width:720px){
+    .track svg{min-width:760px}
+    section{padding:34px 0}
+  }
+</style>
+</head>
+<body>
+
+<header class="site"><div class="wrap">
+  <span class="brand"><img src="../icons/ask-athanasius-dark.png" alt="" style="width:20px;height:20px;vertical-align:-4px;border-radius:4px"> Ask <b>Athanasius</b> · under the hood</span>
+  <a class="crumb" href="../index.html">← all projects</a>
+</div></header>
+
+<section><div class="wrap">
+  <div class="kicker">Under the hood</div>
+  <h1>Twenty centuries of sermons, one honest answer</h1>
+  <p class="lede">Ask Athanasius answers questions from a corpus of Christian teaching — contemporary sermons and the Church Fathers alike — by retrieving the actual passages that speak to the question and generating an answer that <b>cites every source it stands on</b>. Nothing is asserted that can't be traced back to a text.</p>
+  <div class="pills">
+    <span class="pill status">Private build · not yet deployed</span>
+    <span class="pill">Python · FastAPI</span>
+    <span class="pill">Next.js 16 · tRPC</span>
+    <span class="pill">~490k chunks · bge-m3</span>
+    <span class="pill">Ollama / Grok / OpenAI / Claude</span>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">The answer pipeline</div>
+  <h2>From question to cited answer in six moves</h2>
+  <p class="lede">Every question walks this line. Step through it.</p>
+  <div class="track" id="track"></div>
+  <div class="trackNav">
+    <button class="navbtn" id="trackPrev" aria-label="Previous stage">&larr; Prev</button>
+    <span class="trackPos" id="trackPos"></span>
+    <button class="navbtn" id="trackNext" aria-label="Next stage">Next &rarr;</button>
+  </div>
+  <div class="detail" id="stationDetail" aria-live="polite"></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">The corpus</div>
+  <h2>Four sources, one schema</h2>
+  <p class="lede">Content arrives from very different places — YouTube transcripts, sermon manuscripts, web articles, and 19th-century markup — and leaves the pipeline speaking one language.</p>
+  <div class="sources">
+    <div class="src"><h3>Redeemer</h3><p>Sermon transcripts pulled from YouTube via yt-dlp and the transcript API</p></div>
+    <div class="src"><h3>Wisdom International</h3><p>Sermons and full manuscripts, scraped and standardized</p></div>
+    <div class="src"><h3>Desiring God</h3><p>Web articles parsed with BeautifulSoup and Playwright</p></div>
+    <div class="src"><h3>CCEL — Church Fathers</h3><p>Athanasius and company, via a custom parser for ThML — Theology Markup Language</p></div>
+  </div>
+  <div class="etl">
+    <div class="stage"><h3>Parse</h3><p>Source-specific connectors; each implements just <code>discover()</code> and <code>fetch()</code></p></div>
+    <div class="stage"><h3>Standardize</h3><p>Source metadata mapped to one unified schema — speaker, book, work, passage</p></div>
+    <div class="stage"><h3>Chunk</h3><p>2,000-char chunks with 400-char overlap, split at sentence boundaries</p></div>
+    <div class="stage"><h3>Vectorize</h3><p>bge-m3 embeddings, 1024 dimensions, L2-normalized, batched</p></div>
+    <div class="stage"><h3>Store</h3><p>MongoDB documents carrying both the text and its embedding, richly indexed</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">Design decisions</div>
+  <h2>Chosen tradeoffs, stated plainly</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Decision</th><th>Why</th><th>The cost</th></tr>
+    <tr><td>Full-corpus in-memory retrieval</td><td>Every search scores <i>all</i> ~490k chunks — no pagination artifacts, no candidate cutoff hiding the right passage</td><td>~2&nbsp;GB of RAM and a few seconds of warmup, cached to disk after the first load</td></tr>
+    <tr><td>MongoDB instead of a vector database</td><td>One store for text, metadata, and vectors; metadata filters run in the same query as retrieval</td><td>Slower than a dedicated vector DB — which is exactly what the in-memory matrix compensates for</td></tr>
+    <tr><td>Sentence-aware chunking</td><td>Chunks end where thoughts end; retrieved passages read like prose, not fragments</td><td>Uneven chunk sizes; token counts vary against LLM context windows</td></tr>
+    <tr><td>Multi-provider LLM abstraction</td><td>Local Ollama for development, Grok/OpenAI/Claude in the cloud — swapped by environment variable</td><td>Prompt behavior varies per provider; costs tracked per-model to keep it honest</td></tr>
+    <tr><td>LLM query preprocessing (optional)</td><td>"Compare Athanasius and Piper on the Incarnation" becomes a structured plan: entities, filters, strategy</td><td>Added latency — so it's confidence-gated, and plain semantic search is the fallback</td></tr>
+    <tr><td>Citations post-processed, not prompt-engineered</td><td>Adjacent duplicate citations are collapsed after generation; works identically across all four providers</td><td>Non-adjacent duplicates survive — a visible seam, honestly worn</td></tr>
+  </table></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">By the numbers</div>
+  <h2>Measured, not vibes</h2>
+  <div class="chips">
+    <span class="chip">~490,000 chunks indexed</span>
+    <span class="chip">1024-dim embeddings (bge-m3)</span>
+    <span class="chip">~2 GB in-memory matrix</span>
+    <span class="chip">&lt;100 ms full-corpus similarity</span>
+    <span class="chip">2–15 s end-to-end (LLM-dominated)</span>
+    <span class="chip">5–10 s index warmup, then disk-cached</span>
+  </div>
+  <p class="lede" style="margin-top:18px">Cost is tracked per provider and per model — the pricing table is asserted at startup, so a misconfigured model can't silently log $0.</p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">The stack</div>
+  <h2>Two halves, cleanly split</h2>
+  <div class="chips">
+    <span class="chip">Python 3.11 · FastAPI</span><span class="chip">Pydantic 2</span><span class="chip">Motor (async MongoDB)</span>
+    <span class="chip">sentence-transformers · bge-m3</span><span class="chip">Next.js 16 · React 19</span><span class="chip">tRPC 11</span>
+    <span class="chip">Tailwind 4 · Radix UI</span><span class="chip">yt-dlp · Playwright · lxml</span>
+    <span class="chip">AWS ECS Fargate + Atlas (target)</span><span class="chip">GitHub Actions</span>
+  </div>
+  <p class="lede" style="margin-top:18px">The reading experience gets the same care as the retrieval: a token-based design system with three themes — Traditional (warm paper, like this page), Contemporary, and High Contrast — with a generous 17px/27px type scale, because the audience skews older and deserves it.</p>
+</div></section>
+
+<footer><div class="wrap">
+  <span>Ask Athanasius · an Escape Velocity project</span>
+  <span><a href="../index.html">← all projects</a></span>
+</div></footer>
+
+<script>
+"use strict";
+// answer pipeline — data drives the diagram
+const STATIONS=[
+  {lbl:'Ask',sub:'natural language',pts:[
+    'A question arrives from the Next.js chat UI — anything from “What did the Fathers say about the Incarnation?” to “Compare two preachers on Romans 8.”',
+    'Conversation history rides along, so follow-ups stay in context across the whole session.']},
+  {lbl:'Understand',sub:'SearchPlan',pts:[
+    'An optional LLM preprocessing pass reads the question against a cached index of known speakers, works, and books of the Bible.',
+    'It emits a structured <code>SearchPlan</code> — strategy, entities, metadata filters — with a confidence score. Low confidence, and the system falls back to plain semantic search rather than guessing.']},
+  {lbl:'Embed',sub:'bge-m3 · 1024-d',pts:[
+    'The question becomes a 1024-dimension vector via sentence-transformers (BAAI/bge-m3), L2-normalized for cosine similarity.',
+    'Apple Silicon gets MPS acceleration automatically; the same code runs on CPU in the cloud.']},
+  {lbl:'Retrieve',sub:'full-corpus cosine',pts:[
+    'The query vector is scored against <b>every chunk in the corpus at once</b> — a numpy matrix of ~490k × 1024 held in memory, warmed from a disk cache.',
+    'Metadata filters (speaker, source, book, cross-references) apply inside the MongoDB match stage, and an optional word-boundary regex guarantees exact terms appear.',
+    'Top passages come back with their scores, their sources, and everything needed to cite them.']},
+  {lbl:'Generate',sub:'multi-provider LLM',pts:[
+    'The question, the retrieved passages, and the conversation history go to whichever provider is configured — Ollama locally, Grok, OpenAI, or Claude in the cloud — behind one factory interface.',
+    'The answer streams back token by token with inline citation markers: <code>[1]</code>, <code>[2]</code>, keyed to the retrieved passages.']},
+  {lbl:'Cite',sub:'dedupe + link',pts:[
+    'Adjacent duplicate citations collapse — <code>[4][4][2]</code> becomes <code>[4][2]</code> — without touching the model or its prompt.',
+    'Every marker links to a source card: speaker, work, source type, and a URL back to the original sermon or text. The answer never floats free of its footing.']},
+];
+const track=document.getElementById('track'), sd=document.getElementById('stationDetail');
+(function(){
+  const NS='http://www.w3.org/2000/svg', TW=1100, TY=40, TPAD=76, TH=110;
+  const tx=i=>TPAD+i*((TW-2*TPAD)/(STATIONS.length-1));
+  function tel(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p)&&p.appendChild(e);return e;}
+  const svg=tel('svg',{viewBox:`0 0 ${TW} ${TH}`,role:'group','aria-label':'The answer pipeline'});
+  track.appendChild(svg);
+  const defs=tel('defs',{},svg);
+  const grad=tel('linearGradient',{id:'trgrad',x1:0,y1:0,x2:1,y2:0},defs);
+  tel('stop',{offset:'0%','stop-color':'#c9b391'},grad);
+  tel('stop',{offset:'100%','stop-color':'#a3542f'},grad);
+  const mainG=tel('g',{class:'tredge'},svg);
+  tel('path',{d:`M ${tx(0)} ${TY} L ${tx(STATIONS.length-1)} ${TY}`,stroke:'url(#trgrad)'},mainG);
+  const stEls=STATIONS.map((s,i)=>{
+    const g=tel('g',{class:'station'+(i===0?' active':''),tabindex:0,role:'button','aria-label':s.lbl+' — '+s.sub},svg);
+    tel('circle',{class:'ring',cx:tx(i),cy:TY,r:11},g);
+    tel('circle',{class:'core',cx:tx(i),cy:TY,r:5},g);
+    const l=tel('text',{class:'lbl',x:tx(i),y:TY-24,'text-anchor':'middle'},g); l.textContent=s.lbl;
+    const c=tel('text',{class:'sub',x:tx(i),y:TY+30,'text-anchor':'middle'},g); c.textContent=s.sub;
+    g.addEventListener('click',()=>goTo(i));
+    g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();goTo(i);}});
+    return {s,g};
+  });
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const prevBtn=document.getElementById('trackPrev'), nextBtn=document.getElementById('trackNext'), posEl=document.getElementById('trackPos');
+  let current=0;
+  function centerStation(i){
+    const scale=svg.getBoundingClientRect().width/TW;
+    const target=tx(i)*scale-track.clientWidth/2;
+    track.scrollTo({left:Math.max(0,target),behavior:reduced?'auto':'smooth'});
+  }
+  function paintStation(i){
+    const s=STATIONS[i];
+    sd.innerHTML=`<div class="top"><span class="cmd">${s.sub}</span><h3 style="margin:0">${s.lbl}</h3></div><ul>${s.pts.map(p=>`<li>${p}</li>`).join('')}</ul>`;
+  }
+  function goTo(i){
+    current=i;
+    stEls.forEach((e,j)=>e.g.classList.toggle('active',j===i));
+    paintStation(i); centerStation(i);
+    prevBtn.disabled=i===0; nextBtn.disabled=i===STATIONS.length-1;
+    posEl.textContent=(i+1)+' / '+STATIONS.length;
+  }
+  prevBtn.addEventListener('click',()=>{if(current>0)goTo(current-1);});
+  nextBtn.addEventListener('click',()=>{if(current<STATIONS.length-1)goTo(current+1);});
+  goTo(0);
+})();
+</script>
+</body>
+</html>
