@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ask Athanasius — Under the Hood</title>
-<meta name="description" content="How Ask Athanasius works: a multi-source sermon corpus, full-corpus vector retrieval over ~490k chunks, multi-provider LLM generation, and citations that always point home.">
+<meta name="description" content="How Ask Athanasius works: an ever-growing sermon corpus with a 165-concept era bridge, full-corpus retrieval, cited answers, and the Pulse and Directory surfaces built on the same entity pipeline.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23faf7f2'/%3E%3Ctext x='8' y='12' font-family='Georgia' font-size='11' text-anchor='middle' fill='%23a3542f'%3EA%3C/text%3E%3C/svg%3E">
 <style>
   :root{
@@ -102,13 +102,24 @@
 <section><div class="wrap">
   <div class="kicker">Under the hood</div>
   <h1>Twenty centuries of sermons, one honest answer</h1>
-  <p class="lede">Ask Athanasius answers questions from a corpus of Christian teaching — contemporary sermons and the Church Fathers alike — by retrieving the actual passages that speak to the question and generating an answer that <b>cites every source it stands on</b>. Nothing is asserted that can't be traced back to a text.</p>
+  <p class="lede">Ask Athanasius began by answering <i>"what does the church's library say?"</i> — retrieving the actual passages that speak to a question and generating an answer that <b>cites every source it stands on</b>. The new direction asks a bigger question: <i>what is the church saying — right now, everywhere — and how does that sit in twenty centuries of teaching?</i> Three surfaces, one entity pipeline, one ever-growing corpus.</p>
   <div class="pills">
     <span class="pill status">Private build · not yet deployed</span>
     <span class="pill">Python · FastAPI</span>
     <span class="pill">Next.js 16 · tRPC</span>
-    <span class="pill">~490k chunks · bge-m3</span>
-    <span class="pill">Ollama / Grok / OpenAI / Claude</span>
+    <span class="pill">~349k chunks · growing weekly</span>
+    <span class="pill">165-concept era bridge</span>
+    <span class="pill">Pulse · Directory · Study Chat</span>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">The surfaces</div>
+  <h2>Three products, one pipeline underneath</h2>
+  <div class="sources">
+    <div class="src"><h3>National Pulse</h3><p>What American churches are preaching right now: trending topics, most-preached passages, geographic and tradition breakdowns. Cached Mongo aggregations — no LLM in the read path — and every number one click from a primary source.</p></div>
+    <div class="src"><h3>Church Directory</h3><p>A page per church: location, tradition, who preaches, a descriptive concept profile of what they teach, latest sermons with deep links — and a chat scoped to that one congregation's sermons.</p></div>
+    <div class="src"><h3>Study Chat</h3><p>The original surface: the agent over the full corpus, from Ignatius to last Sunday, with structured citations on every answer.</p></div>
   </div>
 </div></section>
 
@@ -127,19 +138,19 @@
 
 <section><div class="wrap">
   <div class="kicker">The corpus</div>
-  <h2>Four sources, one schema</h2>
-  <p class="lede">Content arrives from very different places — YouTube transcripts, sermon manuscripts, web articles, and 19th-century markup — and leaves the pipeline speaking one language.</p>
+  <h2>An ever-growing corpus, replayable by design</h2>
+  <p class="lede">The library spans the complete Early Church Fathers, Calvin, Wesley, Edwards, and all 63 volumes of Spurgeon — and it grows every week from living pulpits: 74 churches in-corpus today, 1,773 validated channels queued across all 51 jurisdictions. The <b>transcript lake</b> is the system of record: chunking, extraction, concept tags, and embeddings are all re-derivable without re-spending a cent of acquisition.</p>
   <div class="sources">
-    <div class="src"><h3>Redeemer</h3><p>Sermon transcripts pulled from YouTube via yt-dlp and the transcript API</p></div>
-    <div class="src"><h3>Wisdom International</h3><p>Sermons and full manuscripts, scraped and standardized</p></div>
-    <div class="src"><h3>Desiring God</h3><p>Web articles parsed with BeautifulSoup and Playwright</p></div>
-    <div class="src"><h3>CCEL — Church Fathers</h3><p>Athanasius and company, via a custom parser for ThML — Theology Markup Language</p></div>
+    <div class="src"><h3>The Fathers &amp; the greats</h3><p>CCEL's Church Fathers via a custom ThML parser, plus Calvin, Wesley, Edwards, and Spurgeon entire</p></div>
+    <div class="src"><h3>Living pulpits</h3><p>YouTube sermon channels — captions indexed citation-forward, per-video extraction of speaker, scripture, and sermon boundaries at ~$0.002/video</p></div>
+    <div class="src"><h3>The entity layer</h3><p>Churches as first-class entities — a church is not a channel: lifecycle states, locations, traditions, rebrand history</p></div>
+    <div class="src"><h3>The concept layer</h3><p>165 era-aware concepts, including the heresy catalog, bridging vocabulary drift across twenty centuries</p></div>
   </div>
   <div class="etl">
     <div class="stage"><h3>Parse</h3><p>Source-specific connectors; each implements just <code>discover()</code> and <code>fetch()</code></p></div>
     <div class="stage"><h3>Standardize</h3><p>Source metadata mapped to one unified schema — speaker, book, work, passage</p></div>
     <div class="stage"><h3>Chunk</h3><p>2,000-char chunks with 400-char overlap, split at sentence boundaries</p></div>
-    <div class="stage"><h3>Vectorize</h3><p>bge-m3 embeddings, 1024 dimensions, L2-normalized, batched</p></div>
+    <div class="stage"><h3>Vectorize</h3><p>bge-small embeddings, L2-normalized, batched — local and effectively free</p></div>
     <div class="stage"><h3>Store</h3><p>MongoDB documents carrying both the text and its embedding, richly indexed</p></div>
   </div>
 </div></section>
@@ -149,10 +160,11 @@
   <h2>Chosen tradeoffs, stated plainly</h2>
   <div class="tablewrap"><table>
     <tr><th>Decision</th><th>Why</th><th>The cost</th></tr>
-    <tr><td>Full-corpus in-memory retrieval</td><td>Every search scores <i>all</i> ~490k chunks — no pagination artifacts, no candidate cutoff hiding the right passage</td><td>~2&nbsp;GB of RAM and a few seconds of warmup, cached to disk after the first load</td></tr>
+    <tr><td>Full-corpus in-memory retrieval</td><td>Every search scores <i>all</i> ~349k chunks in one matrix pass — no pagination artifacts, no candidate cutoff hiding the right passage</td><td>RAM and warmup that grow with the corpus, mitigated by the npz disk cache</td></tr>
     <tr><td>MongoDB instead of a vector database</td><td>One store for text, metadata, and vectors; metadata filters run in the same query as retrieval</td><td>Slower than a dedicated vector DB — which is exactly what the in-memory matrix compensates for</td></tr>
     <tr><td>Sentence-aware chunking</td><td>Chunks end where thoughts end; retrieved passages read like prose, not fragments</td><td>Uneven chunk sizes; token counts vary against LLM context windows</td></tr>
-    <tr><td>Multi-provider LLM abstraction</td><td>Local Ollama for development, Grok/OpenAI/Claude in the cloud — swapped by environment variable</td><td>Prompt behavior varies per provider; costs tracked per-model to keep it honest</td></tr>
+    <tr><td>No LLM in the Pulse read path</td><td>Dashboard numbers come from cached Mongo aggregations — fast, cheap, and identical for every visitor</td><td>Freshness is bounded by the cache window, not the news cycle</td></tr>
+    <tr><td>Transcript lake as system of record</td><td>Everything downstream — chunks, concepts, embeddings — re-derives from the lake without re-spending acquisition credits</td><td>Storage grows forever; deletions honored upstream must propagate on the next transform</td></tr>
     <tr><td>LLM query preprocessing (optional)</td><td>"Compare Athanasius and Piper on the Incarnation" becomes a structured plan: entities, filters, strategy</td><td>Added latency — so it's confidence-gated, and plain semantic search is the fallback</td></tr>
     <tr><td>Citations post-processed, not prompt-engineered</td><td>Adjacent duplicate citations are collapsed after generation; works identically across all four providers</td><td>Non-adjacent duplicates survive — a visible seam, honestly worn</td></tr>
   </table></div>
@@ -162,14 +174,16 @@
   <div class="kicker">By the numbers</div>
   <h2>Measured, not vibes</h2>
   <div class="chips">
-    <span class="chip">~490,000 chunks indexed</span>
-    <span class="chip">1024-dim embeddings (bge-m3)</span>
-    <span class="chip">~2 GB in-memory matrix</span>
-    <span class="chip">&lt;100 ms full-corpus similarity</span>
-    <span class="chip">2–15 s end-to-end (LLM-dominated)</span>
-    <span class="chip">5–10 s index warmup, then disk-cached</span>
+    <span class="chip">~349,000 chunks · growing weekly</span>
+    <span class="chip">165 era-aware concepts</span>
+    <span class="chip">74 churches in-corpus · 1,773 queued</span>
+    <span class="chip">All 63 volumes of Spurgeon</span>
+    <span class="chip">~$0.002/video extraction</span>
+    <span class="chip">$0.002–0.01 per chat question</span>
+    <span class="chip">25/25 on the golden eval set</span>
+    <span class="chip">Citations to the exact second</span>
   </div>
-  <p class="lede" style="margin-top:18px">Cost is tracked per provider and per model — the pricing table is asserted at startup, so a misconfigured model can't silently log $0.</p>
+  <p class="lede" style="margin-top:18px">The eval set includes era-bridging assertions — questions phrased in modern vocabulary that must find ancient answers. Cost is tracked per model, asserted at startup, so a misconfigured model can't silently log $0.</p>
 </div></section>
 
 <section><div class="wrap">
@@ -177,9 +191,9 @@
   <h2>Two halves, cleanly split</h2>
   <div class="chips">
     <span class="chip">Python 3.11 · FastAPI</span><span class="chip">Pydantic 2</span><span class="chip">Motor (async MongoDB)</span>
-    <span class="chip">sentence-transformers · bge-m3</span><span class="chip">Next.js 16 · React 19</span><span class="chip">tRPC 11</span>
+    <span class="chip">sentence-transformers · bge-small</span><span class="chip">Next.js 16 · React 19</span><span class="chip">tRPC 11</span>
     <span class="chip">Tailwind 4 · Radix UI</span><span class="chip">yt-dlp · Playwright · lxml</span>
-    <span class="chip">AWS ECS Fargate + Atlas (target)</span><span class="chip">GitHub Actions</span>
+    <span class="chip">Azure Container Apps + Atlas (target)</span><span class="chip">GitHub Actions</span>
   </div>
   <p class="lede" style="margin-top:18px">The reading experience gets the same care as the retrieval: a token-based design system with three themes — Traditional (warm paper, like this page), Contemporary, and High Contrast — with a generous 17px/27px type scale, because the audience skews older and deserves it.</p>
 </div></section>
@@ -199,19 +213,19 @@ const STATIONS=[
   {lbl:'Understand',sub:'SearchPlan',pts:[
     'An optional LLM preprocessing pass reads the question against a cached index of known speakers, works, and books of the Bible.',
     'It emits a structured <code>SearchPlan</code> — strategy, entities, metadata filters — with a confidence score. Low confidence, and the system falls back to plain semantic search rather than guessing.']},
-  {lbl:'Embed',sub:'bge-m3 · 1024-d',pts:[
-    'The question becomes a 1024-dimension vector via sentence-transformers (BAAI/bge-m3), L2-normalized for cosine similarity.',
-    'Apple Silicon gets MPS acceleration automatically; the same code runs on CPU in the cloud.']},
-  {lbl:'Retrieve',sub:'full-corpus cosine',pts:[
-    'The query vector is scored against <b>every chunk in the corpus at once</b> — a numpy matrix of ~490k × 1024 held in memory, warmed from a disk cache.',
+  {lbl:'Embed',sub:'bge-small',pts:[
+    'The question becomes a vector via sentence-transformers (bge-small), L2-normalized for cosine similarity — the same local, effectively-free embedding used to index the corpus.',
+    'Concept tags ride alongside the vectors: 165 era-aware anchors with per-era phrasings, so "Communion" can find Ignatius\u2019s <i>Eucharist</i> and "Jesus was a created being" finds Athanasius.']},
+  {lbl:'Retrieve',sub:'hybrid · full-corpus',pts:[
+    'The query vector is scored against <b>every chunk in the corpus at once</b> — an in-memory matrix warmed from an npz disk cache — and hybrid retrieval folds in concept-tag matches alongside the dense scores.',
     'Metadata filters (speaker, source, book, cross-references) apply inside the MongoDB match stage, and an optional word-boundary regex guarantees exact terms appear.',
     'Top passages come back with their scores, their sources, and everything needed to cite them.']},
-  {lbl:'Generate',sub:'multi-provider LLM',pts:[
-    'The question, the retrieved passages, and the conversation history go to whichever provider is configured — Ollama locally, Grok, OpenAI, or Claude in the cloud — behind one factory interface.',
-    'The answer streams back token by token with inline citation markers: <code>[1]</code>, <code>[2]</code>, keyed to the retrieved passages.']},
+  {lbl:'Generate',sub:'agent · streaming',pts:[
+    'The serving agent (<code>/api/v2/chat/stream</code>) works the question with search, fetch, and respond tools over the retrieved context and conversation history.',
+    'The answer streams back with structured citations keyed to the retrieved passages — at roughly $0.002\u2013$0.01 per question.']},
   {lbl:'Cite',sub:'dedupe + link',pts:[
     'Adjacent duplicate citations collapse — <code>[4][4][2]</code> becomes <code>[4][2]</code> — without touching the model or its prompt.',
-    'Every marker links to a source card: speaker, work, source type, and a URL back to the original sermon or text. The answer never floats free of its footing.']},
+    'Every marker links to a source card: speaker, work, source type, and a URL back to the original text — for YouTube sermons, to the exact second (<code>&amp;t=1234s</code>). The answer never floats free of its footing.']},
 ];
 const track=document.getElementById('track'), sd=document.getElementById('stationDetail');
 (function(){

@@ -120,7 +120,7 @@
    blurb    2 sentences, mechanism over adjectives
    stack    5-7 chips
    links    [{label, href, primary?}] — omit what doesn't exist
-   note     optional small print (e.g. 'private code')
+   note     optional small print under the links
    ===================================================================== */
 const PROJECTS=[
   {id:'engsys', kind:'system', name:'engsys', mark:'es', accent:'#34e0d2',
@@ -144,40 +144,35 @@ const PROJECTS=[
    stack:['TypeScript','Node 22','Postgres 16 + RLS','AWS KMS','Redis','MCP'],
    // canonical under-the-hood lives in the airlock repo (/under-the-hood route);
    // this local copy is the link target until airlock.team is live — then point there and drop it
-   links:[{label:'Under the hood',href:'under-the-hood/team-airlock.html',primary:true}],
-   note:'private code · airlock.team'},
+   links:[{label:'Under the hood',href:'under-the-hood/team-airlock.html',primary:true},{label:'airlock.team ↗',href:'https://airlock.team'}]},
 
   {id:'ooyiw', kind:'app', name:'One Of You Is Wrong', icon:'icons/ooyiw.png', mark:'⚖', accent:'#ff4d4d',
    status:{label:'Live', tone:'ok'},
    tagline:'Record your petty argument. AI will be the judge.',
    blurb:'Two people record a dispute; the pipeline transcribes it, analyzes both positions, and delivers a verdict in the voice of one of 21 judge personas — from a Gen-Z influencer to an ancient dragon. Serverless AWS end to end, with a fallback at every AI seam.',
    stack:['Swift (iOS)','AWS Lambda + SQS','DynamoDB','Deepgram','Grok + Claude','ElevenLabs'],
-   links:[{label:'oneofyouiswrong.com ↗',href:'https://oneofyouiswrong.com',primary:true},{label:'How it works',href:'https://oneofyouiswrong.com/how-it-works.html'}],
-   note:'private code'},
+   links:[{label:'oneofyouiswrong.com ↗',href:'https://oneofyouiswrong.com',primary:true},{label:'How it works',href:'https://oneofyouiswrong.com/how-it-works.html'}]},
 
   {id:'vibeforge', kind:'app', name:'VibeForge', icon:'icons/vibeforge.png', mark:'VF', accent:'#6366f1',
    status:{label:'Live', tone:'ok'},
    tagline:'Turn rough ideas into build-ready specs in minutes.',
    blurb:'An interview-driven PRD generator: structured flows feed staged LLM calls — Grok for speed, OpenAI for depth — and emit a package of spec, roadmap, data model, and acceptance tests. Every AI stage has a deterministic fallback, so the forge never goes cold.',
    stack:['Next.js 15','TypeScript','Prisma','Azure Container Apps','Stripe','Bicep IaC'],
-   links:[{label:'vibeforge.escapevelo.com ↗',href:'https://vibeforge.escapevelo.com',primary:true},{label:'How it works',href:'https://vibeforge.escapevelo.com/#how-it-works'}],
-   note:'private code'},
+   links:[{label:'vibeforge.escapevelo.com ↗',href:'https://vibeforge.escapevelo.com',primary:true},{label:'How it works',href:'https://vibeforge.escapevelo.com/#how-it-works'}]},
 
   {id:'bbq', kind:'app', name:'BBQ Labs', icon:'icons/bbq.svg', mark:'BQ', accent:'#dc2626',
    status:{label:'Live', tone:'ok'},
    tagline:'Cook plans from physics, not folklore.',
    blurb:'A deterministic BBQ calculator: 100+ smoker profiles, eight meats, and live weather feed a thermodynamic model that emits phase-by-phase cook plans and food-safe timelines as PDF. Same inputs, same plan, every time — which makes predictions testable.',
    stack:['React 18','TypeScript','NWS + Open-Meteo','Tempest API','Azure Static Web Apps'],
-   links:[{label:'bbqlabs.ai ↗',href:'https://bbqlabs.ai',primary:true},{label:'How it works',href:'https://bbqlabs.ai/how-it-works'}],
-   note:'private code'},
+   links:[{label:'bbqlabs.ai ↗',href:'https://bbqlabs.ai',primary:true},{label:'How it works',href:'https://bbqlabs.ai/how-it-works'}]},
 
   {id:'athanasius', kind:'app', name:'Ask Athanasius', icon:'icons/ask-athanasius-light.png', mark:'AA', accent:'#a3542f',
    status:{label:'In development', tone:'warn'},
-   tagline:'Twenty centuries of sermons, one honest answer.',
-   blurb:'Retrieval-augmented Q&A over a multi-source corpus — contemporary sermons and the Church Fathers — with full-corpus vector search across ~490k chunks and answers that cite every passage they stand on. LLM providers swap by env var, from local Ollama to Claude.',
-   stack:['Python · FastAPI','bge-m3 embeddings','MongoDB','Next.js 16','tRPC','multi-LLM'],
-   links:[{label:'Under the hood',href:'under-the-hood/ask-athanasius.html',primary:true}],
-   note:'private code'},
+   tagline:'Twenty centuries of teaching, live from this Sunday\u2019s pulpits.',
+   blurb:'RAG Q&A over an ever-growing corpus — the Church Fathers through this week\u2019s sermons — with a 165-concept layer that bridges twenty centuries of vocabulary drift, and every answer cited to its source (YouTube sermons to the exact second). The new Pulse dashboard shows what American churches are preaching right now; the Directory gives each church a page and a chat scoped to its own sermons.',
+   stack:['Python · FastAPI','hybrid retrieval','concept layer','MongoDB','Next.js 16','Pulse + Directory'],
+   links:[{label:'Under the hood',href:'under-the-hood/ask-athanasius.html',primary:true}]},
 
   {id:'storyarc', kind:'app', name:'Story Arc', icon:'icons/story-arc.png', mark:'SA', accent:'#4aa8ff',
    status:{label:'Released', tone:'ok'},
