@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" height="300" role="img" aria-label="Ask Athanasius logo lockup">
+  <title>Ask Athanasius — Adaptive Logo Lockup</title>
+  <style>
+    :root {
+      --aa-gold: #B59236;
+      --aa-blue: #0B1623;
+      --aa-white: #FFFFFF;
+      --aa-red: #8C2B2B;
+    }
+    /* Light mode */
+    .bg { fill: var(--aa-white); }
+    .ink { fill: none; stroke: var(--aa-blue); stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; }
+    .gold { fill: none; stroke: var(--aa-gold); stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; }
+    .fill-gold { fill: var(--aa-gold); }
+    .accent { fill: none; stroke: var(--aa-red); stroke-width: 16; }
+    .type { fill: var(--aa-blue); font-family: "Times New Roman", Times, serif; font-size: 96px; }
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: var(--aa-blue); }
+      .ink { stroke: var(--aa-gold); }
+      .gold { stroke: var(--aa-gold); }
+      .fill-gold { fill: var(--aa-gold); }
+      .accent { stroke: var(--aa-red); } /* keeps subtle red accent on dark */
+      .type { fill: var(--aa-gold); }
+    }
+    * { shape-rendering: geometricPrecision; }
+  </style>
+
+  <!-- Background -->
+  <rect class="bg" x="0" y="0" width="900" height="300" rx="24" />
+
+  <!-- Emblem (left) -->
+  <g transform="translate(80,60)">
+    <!-- Open book outline -->
+    <path class="gold" d="M0,150 C80,110 160,110 240,150
+                           M0,150 L0,80
+                           M240,150 L240,80
+                           M120,150 L120,90" />
+    <!-- Cross + Alpha -->
+    <g transform="translate(120,28)">
+      <rect class="fill-gold" x="-12" y="8" width="24" height="96" rx="4" />
+      <rect class="fill-gold" x="-48" y="24" width="96" height="22" rx="4" />
+      <path class="fill-gold" d="M0,110 L-58,188 L-28,204 L0,160 L28,204 L58,188 Z"/>
+      <polygon class="bg" points="0,126 -16,156 16,156"/>
+    </g>
+    <!-- Rays -->
+    <g>
+      <path class="gold" d="M120,36 v-20" />
+      <path class="gold" d="M146,46 l14 -14" />
+      <path class="gold" d="M94,46 l-14 -14" />
+    </g>
+    <!-- Subtle red inner outline around crossbar (optional accent) -->
+    <rect class="accent" x="72" y="52" width="96" height="22" rx="4" opacity="0.8"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text class="type" x="360" y="180">Ask Athanasius</text>
+</svg>

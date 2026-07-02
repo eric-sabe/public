@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team Airlock — Under the Hood</title>
+<meta name="description" content="How Team Airlock works: a sealed two-origin sandbox for agent-to-human reviews, a deny-by-default broker, and cryptographic self-destruction. The engineering, station by station.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230B1116'/%3E%3Ccircle cx='8' cy='8' r='4' fill='none' stroke='%230B757E' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0B1116; --surface:#131C23; --surface-2:#1C262E; --line:#26333d;
+    --ink:#e9eef1; --muted:#93a4ae; --dim:#5f7078;
+    --seal:#17b3c1; --seal-deep:#0B757E; --seal-dim:#0a5c63;
+    --amber:#d99a2b; --green:#2eb377; --red:#d05446; --blue:#4d8de0;
+    --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --serif:"IBM Plex Serif",Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;font-size:15.5px}
+  a{color:var(--seal);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:960px;margin:0 auto;padding:0 22px}
+  header.site{border-bottom:1px solid var(--line);padding:14px 0}
+  header.site .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .brand{font-family:var(--mono);font-size:13.5px;letter-spacing:.5px;color:var(--ink)}
+  .brand b{color:var(--seal)}
+  .crumb{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  section{padding:44px 0;border-bottom:1px solid var(--line)}
+  .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:2px;text-transform:uppercase;color:var(--seal)}
+  h1{font-size:clamp(28px,4.5vw,42px);line-height:1.06;margin:.25em 0;letter-spacing:-.5px}
+  h2{font-size:clamp(21px,3vw,28px);margin:.2em 0 .4em;letter-spacing:-.3px}
+  h3{font-size:16.5px;margin:0 0 .3em}
+  .lede{font-size:clamp(15px,1.9vw,17.5px);color:#c4d0d8;max-width:66ch}
+  .tagline{font-family:var(--serif);font-style:italic;color:var(--muted);margin-top:10px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+  .pill{font-family:var(--mono);font-size:11px;letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:3px 11px;color:var(--muted)}
+  .pill.status{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,var(--line))}
+
+  /* lifecycle pipeline — stations + loops (interactive-explainer grammar) */
+  .track{margin:26px 0 6px;position:relative;overflow-x:auto}
+  .track svg{width:100%;height:auto;display:block;min-width:0}
+  .station{cursor:pointer}
+  .station .ring{fill:var(--bg);stroke:var(--muted);stroke-width:2;transition:.15s}
+  .station .core{fill:var(--muted);transition:.15s}
+  .station .lbl{fill:var(--muted);font-size:14px;font-weight:600;font-family:var(--sans)}
+  .station .sub{fill:var(--muted);font-family:var(--mono);font-size:12px}
+  .station:hover .ring{stroke:var(--ink)} .station:hover .lbl{fill:var(--ink)}
+  .station:focus{outline:none}
+  .station:focus-visible .ring{stroke:var(--seal);stroke-dasharray:3 3}
+  .station.active .ring{stroke:var(--seal);filter:drop-shadow(0 0 5px rgba(23,179,193,.4))}
+  .station.active .core{fill:var(--seal)}
+  .station.active .lbl{fill:#fff}
+  .station.active .sub{fill:var(--seal)}
+  .tredge path{fill:none;stroke-width:2}
+  .tredge.loop path{stroke:var(--line);stroke-dasharray:5 4;stroke-width:1.5;transition:.15s}
+  .tredge.loop text{fill:var(--muted);font-family:var(--mono);font-size:10.5px;paint-order:stroke;stroke:var(--bg);stroke-width:3px}
+  .tredge.loop.lit path{stroke:var(--amber)}
+  .tredge.loop.lit text{fill:var(--amber)}
+  @keyframes flow{to{stroke-dashoffset:-18}}
+  @media (prefers-reduced-motion: reduce){.tredge.loop.lit path{animation:none}}
+  .trackNav{display:flex;align-items:center;gap:12px;margin:6px 0 4px}
+  .navbtn{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 13px;cursor:pointer}
+  .navbtn:hover:not(:disabled){color:var(--ink);border-color:var(--seal)}
+  .navbtn:disabled{opacity:.35;cursor:default}
+  .trackPos{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .detail{background:linear-gradient(180deg,var(--surface),var(--bg));border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-top:14px}
+  .detail .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .detail .cmd{font-family:var(--mono);font-size:12.5px;color:var(--seal);background:rgba(23,179,193,.08);border:1px solid var(--seal-dim);padding:3px 9px;border-radius:6px}
+  .detail ul{margin:.4em 0 0;padding-left:18px}
+  .detail li{margin:.35em 0;color:#c4d0d8;font-size:14px}
+  .detail code, .g code, td code{font-family:var(--mono);font-size:.92em;color:var(--seal);background:rgba(23,179,193,.07);padding:1px 5px;border-radius:4px}
+
+  /* guarantees */
+  .guarantees{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:22px}
+  .g{background:linear-gradient(180deg,var(--surface),var(--bg));border:1px solid var(--line);border-top:3px solid var(--seal-deep);border-radius:14px;padding:18px}
+  .g p{font-size:13.5px;color:#c4d0d8;margin:.4em 0 0}
+  .g .n{font-family:var(--mono);font-size:11px;color:var(--seal);letter-spacing:1px;text-transform:uppercase}
+
+  /* numbers table */
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
+  th{text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);color:#c4d0d8;vertical-align:top}
+  td:first-child{white-space:nowrap;color:var(--ink);font-weight:600}
+  .tablewrap{overflow-x:auto}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .chip{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+  footer{padding:26px 0 40px;color:var(--dim);font-size:12.5px}
+  footer .wrap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  @media(max-width:720px){
+    .track svg{min-width:760px}
+    section{padding:34px 0}
+  }
+</style>
+</head>
+<body>
+
+<header class="site"><div class="wrap">
+  <span class="brand"><img src="../icons/airlock.svg" alt="" style="width:18px;height:18px;vertical-align:-4px"> team <b>airlock</b> · under the hood</span>
+  <a class="crumb" href="../index.html">← all projects</a>
+</div></header>
+
+<section><div class="wrap">
+  <div class="kicker">Under the hood</div>
+  <h1>A sealed chamber for agent&hairsp;→&hairsp;human reviews</h1>
+  <p class="lede">Team Airlock lets an AI agent publish an interactive review — an architecture decision, a spec, a punch list — to human reviewers, collect structured answers, and then make the whole package <b>cryptographically unreadable, everywhere, in one operation</b>. What survives is a signed receipt proving the review happened.</p>
+  <p class="tagline">“Where your agent takes work to humans — and brings the answers back.”</p>
+  <div class="pills">
+    <span class="pill status">In development · airlock.team</span>
+    <span class="pill">TypeScript · Node 22</span>
+    <span class="pill">Postgres 16 + RLS</span>
+    <span class="pill">AWS KMS · S3 · Redis 7</span>
+    <span class="pill">MCP agent surface</span>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">The lifecycle</div>
+  <h2>One package, six stations, no plaintext left behind</h2>
+  <p class="lede">Every review package walks this line. Step through it — the dashed arc is what happens if the agent never comes back for the results.</p>
+  <div class="track" id="track"></div>
+  <div class="trackNav">
+    <button class="navbtn" id="trackPrev" aria-label="Previous station">&larr; Prev</button>
+    <span class="trackPos" id="trackPos"></span>
+    <button class="navbtn" id="trackNext" aria-label="Next station">Next &rarr;</button>
+  </div>
+  <div class="detail" id="stationDetail" aria-live="polite"></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">The three guarantees</div>
+  <h2>Sandbox, isolation, shred</h2>
+  <div class="guarantees">
+    <div class="g">
+      <div class="n">1 · Enforced sandbox</div>
+      <h3>The package can render, but it cannot reach</h3>
+      <p>Agent-authored HTML runs in an opaque-origin iframe (<code>sandbox="allow-scripts"</code>, never <code>allow-same-origin</code>) served from a separate, <b>cookieless</b> content origin. Its CSP says <code>connect-src 'none'</code> — no fetch, no XHR, no WebSocket, no beacon. The only way out is <code>postMessage</code> to a broker that validates every write against the package's inferred schema, deny-by-default. Author JavaScript never runs at all: rich UI comes from Airlock's own web components, rendered from declarative data.</p>
+    </div>
+    <div class="g">
+      <div class="n">2 · Tenant isolation</div>
+      <h3>Postgres has the final word</h3>
+      <p>Every row carries a subscription id, and row-level security is <code>FORCE</code>d — the app connects as a non-owner role and sets tenant scope per transaction. A bug in application code cannot cross tenants, because the database itself refuses. Reviewer magic links are HMAC-signed, single-use by unique constraint, and redeem atomically.</p>
+    </div>
+    <div class="g">
+      <div class="n">3 · Crypto-shred</div>
+      <h3>One delete makes everything unreadable</h3>
+      <p>Each package gets its own AES-256 key, wrapped by a KMS master and stored <i>only</i> in an unversioned S3 bucket with no backups. Content, responses, and attachments are all encrypted under it, bound to <code>{tenant, package, revision}</code> so stolen ciphertext can't be replayed elsewhere. The shred deletes that one wrapped key — and every copy of the ciphertext, in Postgres, S3, and Redis, becomes permanently inert at once. Not a best-effort cleanup — a structural guarantee.</p>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">What survives</div>
+  <h2>Proof without plaintext</h2>
+  <p class="lede">After the shred, <code>retrieveResults</code> returns <code>403</code> — there is no key to decrypt with. What remains is an append-only audit log and an HMAC-signed receipt: who was invited, what was answered (as a hash), when it was collected, when it was purged. Enough to prove the review happened; nothing that can leak what was said.</p>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">By the numbers</div>
+  <h2>Limits and clocks</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Thing</th><th>Value</th><th>Why</th></tr>
+    <tr><td>postMessage cap</td><td>1&nbsp;MB per message</td><td>The broker bounds every write before validating it</td></tr>
+    <tr><td>Magic-link redeem</td><td>30 hits / 60s per IP+package</td><td>Brute-force defense on the front door</td></tr>
+    <tr><td>Reviewer writes</td><td>600 / 60s per session</td><td>Generous for humans, hostile to loops — on top of replay guards</td></tr>
+    <tr><td>Review window</td><td>~1 week free · ~1 month paid</td><td>Then a grace period; reviewers can finish, nobody new gets in</td></tr>
+    <tr><td>Harvest window</td><td>~7 days after review closes</td><td>Miss it and the package auto-shreds — confidentiality beats convenience</td></tr>
+    <tr><td>Shred cost</td><td>One S3 <code>DeleteObject</code></td><td>Per-package keys make destruction O(1), ~$33/month per <i>million</i> packages of KMS traffic</td></tr>
+    <tr><td>Definition of done</td><td>Golden journey green 3× consecutively</td><td>Agent → two sandboxed reviewers → harvest → ack → shred → inert, end to end</td></tr>
+  </table></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="kicker">The stack</div>
+  <h2>Built local-first, shaped for AWS</h2>
+  <p class="lede">Phase 0 runs entirely on docker-compose — Postgres, Redis, MinIO, LocalStack-KMS, ClamAV — so the whole security model is testable on a laptop. The AWS shape (CloudFront + S3, Fargate, Aurora Serverless, KMS) is the same architecture with the toys swapped for the real things.</p>
+  <div class="chips">
+    <span class="chip">TypeScript</span><span class="chip">Node.js 22</span><span class="chip">React 18</span>
+    <span class="chip">PostgreSQL 16 · RLS</span><span class="chip">Redis 7</span><span class="chip">AWS KMS</span>
+    <span class="chip">S3 / MinIO</span><span class="chip">AES-256-GCM</span><span class="chip">MCP</span>
+    <span class="chip">Playwright sandbox tests</span><span class="chip">Vitest</span><span class="chip">ClamAV preflight</span>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <span>Team Airlock · an Escape Velocity project</span>
+  <span><a href="../index.html">← all projects</a></span>
+</div></footer>
+
+<script>
+"use strict";
+// lifecycle stations — data drives the diagram; edit here to change the story
+const STATIONS=[
+  {lbl:'Author',sub:'createPackage',pts:[
+    'The agent authors the review as HTML using <code>&lt;airlock-*&gt;</code> components — decision, punch list, sign-off. The schema is <b>inferred from the markup</b>; the agent never writes parsing logic.',
+    'A fresh AES-256 key is minted for this one package, wrapped under a KMS master, and stored only in an ephemeral S3 bucket.',
+    'Content is encrypted (AES-256-GCM) bound to <code>{tenant, package, revision}</code> before it ever touches the database.']},
+  {lbl:'Publish',sub:'publishPackage',pts:[
+    'The revision locks — published packages are immutable.',
+    'A headless <b>preflight render</b> runs first: any egress attempt or disallowed API and the package is rejected before a human ever sees it.',
+    'Each reviewer gets an HMAC-signed, single-use magic link. Redemption is atomic — a unique constraint makes replay impossible, not just unlikely.']},
+  {lbl:'Review',sub:'sealed sandbox',pts:[
+    'Reviewers work in a two-origin chamber: trusted chrome on the app origin holds the session; the untrusted package renders in an opaque-origin iframe on a cookieless content origin.',
+    'The package’s only egress is <code>postMessage</code>. A deny-by-default broker checks every write: schema field exists, value shape matches, nonce unseen, size under 1&nbsp;MB. Identity comes from the server session — never from the message.',
+    'Valid answers are encrypted under the package key and appended server-side. Nothing persists in the browser.']},
+  {lbl:'Harvest',sub:'retrieveResults',pts:[
+    'When the clocks close, the package becomes read-only and the agent folds the append-only response log into canonical results.',
+    'This phase is <b>repeatable and non-destructive</b> — it returns the results plus a canonical hash, and the agent can call it as many times as it likes.',
+    'Nothing is deleted yet. Destruction never happens on a read.']},
+  {lbl:'Acknowledge',sub:'hash-gated',pts:[
+    'The agent presents the results hash back. If it doesn’t match what the host would produce right now, the shred is refused — Airlock never destroys data the agent didn’t provably receive.',
+    'This two-phase handshake is the difference between “deleted after export” and “deleted after <i>attested</i> export.”']},
+  {lbl:'Shred',sub:'DEK deleted',pts:[
+    'The wrapped package key is deleted from its unversioned, backup-free S3 bucket. That one delete makes every copy of the ciphertext — Postgres rows, attachment blobs, cache entries — permanently undecryptable.',
+    'What survives: an append-only audit trail and an HMAC-signed receipt. Proof of the review, none of its contents.',
+    'From here, <code>retrieveResults</code> returns <code>403</code> — there is no key left to decrypt with.']},
+];
+const LOOPS=[{from:2,to:5,label:'harvest window missed → auto-shred'}];
+const track=document.getElementById('track'), sd=document.getElementById('stationDetail');
+(function(){
+  const NS='http://www.w3.org/2000/svg', TW=1100, TY=40, TPAD=76;
+  const TH=TY+64+LOOPS.length*30+8;
+  const tx=i=>TPAD+i*((TW-2*TPAD)/(STATIONS.length-1));
+  function tel(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p)&&p.appendChild(e);return e;}
+  const svg=tel('svg',{viewBox:`0 0 ${TW} ${TH}`,role:'group','aria-label':'Package lifecycle, including the auto-shred path'});
+  track.appendChild(svg);
+  const defs=tel('defs',{},svg);
+  const grad=tel('linearGradient',{id:'trgrad',x1:0,y1:0,x2:1,y2:0},defs);
+  tel('stop',{offset:'0%','stop-color':'#0a5c63'},grad);
+  tel('stop',{offset:'60%','stop-color':'#17b3c1'},grad);
+  tel('stop',{offset:'100%','stop-color':'#d05446'},grad);
+  const arr=tel('marker',{id:'trarr',viewBox:'0 0 8 8',refX:7,refY:4,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},defs);
+  tel('path',{d:'M0,0.5 L7.5,4 L0,7.5 z',fill:'#5f7078'},arr);
+  const arrLit=tel('marker',{id:'trarr-lit',viewBox:'0 0 8 8',refX:7,refY:4,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},defs);
+  tel('path',{d:'M0,0.5 L7.5,4 L0,7.5 z',fill:'#d99a2b'},arrLit);
+  const mainG=tel('g',{class:'tredge'},svg);
+  tel('path',{d:`M ${tx(0)} ${TY} L ${tx(STATIONS.length-1)} ${TY}`,stroke:'url(#trgrad)'},mainG);
+  const loopEls=LOOPS.map((L,i)=>{
+    const g=tel('g',{class:'tredge loop'},svg);
+    const x1=tx(L.from), x2=tx(L.to), dip=TY+64+i*30;
+    const p=tel('path',{d:`M ${x1} ${TY+12} C ${x1} ${dip}, ${x2} ${dip}, ${x2} ${TY+14}`,'marker-end':'url(#trarr)'},g);
+    const t=tel('text',{x:(x1+x2)/2,y:dip-7,'text-anchor':'middle'},g); t.textContent=L.label;
+    return {L,g,p};
+  });
+  const stEls=STATIONS.map((s,i)=>{
+    const g=tel('g',{class:'station'+(i===0?' active':''),tabindex:0,role:'button','aria-label':s.lbl+' — '+s.sub},svg);
+    tel('circle',{class:'ring',cx:tx(i),cy:TY,r:11},g);
+    tel('circle',{class:'core',cx:tx(i),cy:TY,r:5},g);
+    const l=tel('text',{class:'lbl',x:tx(i),y:TY-24,'text-anchor':'middle'},g); l.textContent=s.lbl;
+    const c=tel('text',{class:'sub',x:tx(i),y:TY+30,'text-anchor':'middle'},g); c.textContent=s.sub;
+    g.addEventListener('click',()=>goTo(i));
+    g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();goTo(i);}});
+    return {s,g};
+  });
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const prevBtn=document.getElementById('trackPrev'), nextBtn=document.getElementById('trackNext'), posEl=document.getElementById('trackPos');
+  let current=0;
+  function centerStation(i){
+    const scale=svg.getBoundingClientRect().width/TW;
+    const target=tx(i)*scale-track.clientWidth/2;
+    track.scrollTo({left:Math.max(0,target),behavior:reduced?'auto':'smooth'});
+  }
+  function paintStation(i){
+    const s=STATIONS[i];
+    sd.innerHTML=`<div class="top"><span class="cmd">${s.sub}</span><h3 style="margin:0">${s.lbl}</h3></div><ul>${s.pts.map(p=>`<li>${p}</li>`).join('')}</ul>`;
+  }
+  function goTo(i){
+    current=i;
+    stEls.forEach((e,j)=>e.g.classList.toggle('active',j===i));
+    loopEls.forEach(le=>{
+      const lit=le.L.from===i||le.L.to===i;
+      le.g.classList.toggle('lit',lit);
+      le.p.setAttribute('marker-end',lit?'url(#trarr-lit)':'url(#trarr)');
+    });
+    paintStation(i); centerStation(i);
+    prevBtn.disabled=i===0; nextBtn.disabled=i===STATIONS.length-1;
+    posEl.textContent=(i+1)+' / '+STATIONS.length;
+  }
+  prevBtn.addEventListener('click',()=>{if(current>0)goTo(current-1);});
+  nextBtn.addEventListener('click',()=>{if(current<STATIONS.length-1)goTo(current+1);});
+  goTo(0);
+})();
+</script>
+</body>
+</html>
