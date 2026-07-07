@@ -98,8 +98,7 @@
 <footer><div class="wrap">
   <span>© 2026 Escape Velocity Ventures</span>
   <span>
-    Also here: <a href="pdlc.html">the PDLC essay</a> ·
-    <a href="https://github.com/eric-sabe/public/tree/main/farming-game">Farming Game docs</a> ·
+    Also here: <a href="https://github.com/eric-sabe/public/tree/main/farming-game">Farming Game docs</a> ·
     <a href="https://github.com/eric-sabe" rel="noopener">github.com/eric-sabe</a> ·
     <a href="https://www.linkedin.com/in/sabetti/" rel="noopener">reach me on LinkedIn</a>
   </span>
@@ -136,6 +135,13 @@ const PROJECTS=[
    blurb:'A single static page of GitHub activity — commits, PRs, streaks — regenerated on schedule by an Action into a stats.json the page reads directly. No server, no tracking, no framework.',
    stack:['GitHub Actions','static JSON pipeline','SVG charts','vanilla JS'],
    links:[{label:'Live site ↗',href:'https://eric-sabe.github.io/engsys/dashboard.html',primary:true},{label:'GitHub',href:'https://github.com/eric-sabe/engsys'}]},
+
+  {id:'pdlc', kind:'system', name:'PDLC Concept Graph', mark:'pd', accent:'#5aa9e6',
+   status:{label:'Live', tone:'ok'},
+   tagline:'How products actually get built, drawn as a graph.',
+   blurb:'The product development lifecycle as an interactive concept graph: 37 stages across seven bands, with checkpoints, feedback loops, 32 named practices, roles, tooling, and metrics — 153 nodes, 451 edges. Nine linked views in one self-contained HTML file, and a Sources tab that cites and grades its own references.',
+   stack:['single-file HTML','vanilla JS + SVG','153-node graph','9 linked views','graded sources'],
+   links:[{label:'Explore the graph',href:'pdlc.html',primary:true}]},
 
   {id:'airlock', kind:'app', name:'Team Airlock', icon:'icons/airlock.svg', mark:'TA', accent:'#17b3c1',
    status:{label:'In development', tone:'warn'},
@@ -180,6 +186,13 @@ const PROJECTS=[
    blurb:'An SVG-first editor for hand-shaped story curves — Bézier anchors, milestones, and glowing keynote-style themes — exporting clean SVG or hi-res PNG. Zero dependencies and no build step: four files, a JSON scene format, and full undo/redo.',
    stack:['vanilla JS','SVG','canvas export','localStorage','10 themes'],
    links:[{label:'GitHub',href:'https://github.com/eric-sabe/story-arc',primary:true}]},
+
+  {id:'storytime', kind:'app', name:'Story Time', mark:'St', accent:'#d97757',
+   status:{label:'Live', tone:'ok'},
+   tagline:'The Anthropic Reading Room.',
+   blurb:'Anthropic essays and papers — Core Views, Machines of Loving Grace, the interpretability work — rebuilt as narrated, scroll-driven listening experiences with real voiceover and word-synced captions. One data file per work drives copy, audio, and captions, and every claim passes an independent adversarial fidelity review before publishing.',
+   stack:['static HTML','build.mjs pipeline','ElevenLabs narration','word-synced captions','fidelity reviewer'],
+   links:[{label:'Live site ↗',href:'https://eric-sabe.github.io/story-time/',primary:true},{label:'GitHub',href:'https://github.com/eric-sabe/story-time'}]},
 
   {id:'honey', kind:'tool', name:'honey', mark:'ho', accent:'#f5b13d',
    status:{label:'Released', tone:'ok'},
@@ -244,7 +257,7 @@ KINDS.forEach(([k,label],i)=>{
 
 <!-- graveyard:
   "a curated collection of…"      → the grid IS the curation
-  "passionate about building"     → the eleven cards are the passion, with links
+  "passionate about building"     → the cards are the passion, with links
   status "coming soon" for airlock → "In development" states a fact; soon promises one
 -->
 </body>
