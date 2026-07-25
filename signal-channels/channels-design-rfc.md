@@ -169,7 +169,15 @@ Consequences and mitigations:
 ## 7. Client UX sketch
 
 - A channel switcher in the group conversation view (chips or a header dropdown); #general
-  first, then channels in group-state order. Per-channel unread counts.
+  first, then channels in group-state order, with per-channel unread badges and a strongly
+  distinct active-chip state. A prototype showed the feature reads as inert without both.
+- Each message carries a compact #channel label in its metadata row, so attribution
+  survives outside the filtered view (quote-followed replies, the #general fold, and
+  recordings or screenshots).
+- Read state is channel-scoped: entering a channel lands on its first unread message, and
+  only messages actually brought into view are marked read, so reading two of ten leaves
+  eight unread. Prototyping showed this costs little because seen/read state is already
+  per-message on every platform.
 - A "Channels" section in group settings, visible to all, editable by admins.
 - Long-press or right-click on a channel opens mute options mirroring today's mute durations.
 - The pinned-message bar shows the active channel's pins.
